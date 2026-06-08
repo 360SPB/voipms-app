@@ -386,7 +386,7 @@ async function doLogin() {
   const btn = document.getElementById('login-btn');
   const errEl = document.getElementById('login-error');
   errEl.style.display = 'none';
-  const isPwd = document.querySelector('.tab-btn.active').textContent.includes('密码');
+  const isPwd = true;
   const username = isPwd ? document.getElementById('l-user').value.trim() : document.getElementById('l-user2').value.trim();
   const password = isPwd ? document.getElementById('l-pass').value : document.getElementById('l-api').value;
   if (!username || !password) { showErr('请填写用户名和密码'); return; }
