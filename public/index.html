@@ -435,7 +435,7 @@ function renderThreadList(threads){
       div.className='thread-item'+(currentThread&&currentThread.contact===t.contact?' active':'');
       const avatarContent=hasName?ini(name):'<i class="ti ti-phone" style="font-size:18px"></i>';
       const displayName=hasName?(name+' ('+fmtNum(t.contact)+')'):fmtNum(t.contact);
-      div.innerHTML=`<div class="t-avatar" style="background:${color}">${avatarContent}</div><div class="t-info"><div class="t-top"><span class="t-name">${esc(displayName)}</span><span class="t-time">${fmtTime(last.date)}</span></div><div class="t-bottom"><span class="t-preview">${last.type==='sent'?'你: ':''}${esc((last.message||'新对话').slice(0,35))}</span></div></div>`;
+      div.innerHTML=`<div class="t-avatar" style="background:${color}">${avatarContent}</div><div class="t-info"><div class="t-top"><span class="t-name">${esc(displayName)}</span><span class="t-time">${fmtTime(last.date)}</span></div><div class="t-bottom"><span class="t-preview">${(last.type==='0'||last.type===0||last.type==='sent')?'你: ':''}${esc((last.message||'新对话').slice(0,35))}</span></div></div>`;
       div.onclick=()=>openThread(t);
       el.appendChild(div);
     });
@@ -504,7 +504,7 @@ function renderMessages(elId,msgs){
   msgs.forEach(m=>{
     const ds=(m.date||'').slice(0,10);
     if(ds!==lastDate){const d=document.createElement('div');d.className='day-label';d.innerHTML=`<span>${fmtDayLabel(ds)}</span>`;el.appendChild(d);lastDate=ds;}
-    const sent=m.type==='sent';
+    const sent=(m.type==='0'||m.type===0||m.type==='sent');
     const row=document.createElement('div');
     row.className='msg-row '+(sent?'sent':'recv');
     const time=(m.date||'').slice(11,16);
