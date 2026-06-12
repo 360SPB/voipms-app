@@ -425,11 +425,11 @@ function renderThreadList(threads){
     el.innerHTML='';
     threads.forEach(t=>{
       const name=getContactName(t.contact);
-      const last=t.msgs[t.msgs.length-1];
+      const last=t.msgs.length>0?t.msgs[t.msgs.length-1]:{date:t.lastTime,message:'',type:''};
       const color=getColor(name);
       const div=document.createElement('div');
       div.className='thread-item'+(currentThread&&currentThread.contact===t.contact?' active':'');
-      div.innerHTML=`<div class="t-avatar" style="background:${color}">${ini(name)}</div><div class="t-info"><div class="t-top"><span class="t-name">${esc(name)}</span><span class="t-time">${fmtTime(last.date)}</span></div><div class="t-bottom"><span class="t-preview">${last.type==='sent'?'你: ':''}${esc((last.message||'').slice(0,35))}</span></div></div>`;
+      div.innerHTML=`<div class="t-avatar" style="background:${color}">${ini(name)}</div><div class="t-info"><div class="t-top"><span class="t-name">${esc(name)}</span><span class="t-time">${fmtTime(last.date)}</span></div><div class="t-bottom"><span class="t-preview">${last.type==='sent'?'你: ':''}${esc((last.message||'新对话').slice(0,35))}</span></div></div>`;
       div.onclick=()=>openThread(t);
       el.appendChild(div);
     });
