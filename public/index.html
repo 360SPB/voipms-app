@@ -488,7 +488,8 @@ async function openThread(t){
     document.getElementById('chat-name').textContent=hasName?(name+' '+fmtNum(t.contact)):fmtNum(t.contact);
     document.getElementById('chat-num').textContent=note||(hasName?t.contact:'');
   }
-  renderMessages(isMobile()?'mob-messages':'messages',t.msgs);
+  const sortedMsgs=[...t.msgs].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  renderMessages(isMobile()?'mob-messages':'messages',sortedMsgs);
   renderThreadList(allThreads);
   try{
     const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:t.contact})});
