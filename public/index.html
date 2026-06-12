@@ -301,7 +301,7 @@ async function mergeMMS(msgs,contact){
     const r=await fetch(API+'/api/mms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID})});
     const data=await r.json();
     if(!data.sms)return msgs;
-    const mmsForContact=data.sms.filter(m=>norm10(m.contact)===norm10(contact)&&m.media1);
+    const mmsForContact=data.sms.filter(m=>norm10(m.contact)===norm10(contact)&&m.col_media1);
     const merged=[...msgs,...mmsForContact];
     const seen=new Set();
     const dedup=merged.filter(m=>{if(seen.has(m.id))return false;seen.add(m.id);return true;});
@@ -525,9 +525,9 @@ function renderMessages(elId,msgs){
     const row=document.createElement('div');
     row.className='msg-row '+(sent?'sent':'recv');
     const time=(m.date||'').slice(11,16);
-    const hasImg=m.media1&&m.media1.length>0;
+    const hasImg=m.col_media1&&m.col_media1.length>0;
     const bodyHtml=hasImg
-      ? '<img src="'+esc(m.media1)+'" style="max-width:240px;border-radius:8px;display:block;'+(m.message?'margin-bottom:4px;':'')+'">'+(m.message?'<div class="msg-text">'+esc(m.message)+'</div>':'')
+      ? '<img src="'+esc(m.col_media1)+'" style="max-width:240px;border-radius:8px;display:block;'+(m.message?'margin-bottom:4px;':'')+'">'+(m.message?'<div class="msg-text">'+esc(m.message)+'</div>':'')
       : '<div class="msg-text">'+esc(m.message||'')+'</div>';
     row.innerHTML='<div class="msg-bubble">'+bodyHtml+'<div class="msg-meta"><span class="msg-time">'+time+'</span>'+(sent?'<i class="ti ti-checks msg-tick read"></i>':'')+'</div></div>';
     el.appendChild(row);
