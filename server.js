@@ -100,6 +100,46 @@ async function handleSMSSend(req, res) {
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
+async function handleMMSSend(req, res) {
+  const { username, password, did, dst, message, mediaUrl } = await readBody(req);
+  if (!username || !password || !did || !dst || !mediaUrl) return sendJSON(res, 400, { error: "缺少必要参数" });
+  try {
+    const params = { api_username: username, api_password: password, method: "sendMMS", did, dst, message: message || "", media1: mediaUrl };
+    const result = await voipmsRequest(params);
+    sendJSON(res, 200, result);
+  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+}
+
+async function handleImageUpload(req, res) {
+  const { imageBase64 } = await readBody(req);
+  if (!imageBase64) return sendJSON(res, 400, { error: "缺少图片数据" });
+  try {
+    const IMGBB_KEY = "5f2f425513298915fbd4fae8cd2e8986";
+    const postData = new URLSearchParams({ key: IMGBB_KEY, image: imageBase64 }).toString();
+    const result = await new Promise((resolve, reject) => {
+      const reqOptions = {
+        hostname: "api.imgbb.com",
+        path: "/1/upload",
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(postData) }
+      };
+      const r2 = https.request(reqOptions, (res2) => {
+        let data = "";
+        res2.on("data", chunk => data += chunk);
+        res2.on("end", () => {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { reject(new Error("imgbb返回数据格式错误")); }
+        });
+      });
+      r2.on("error", reject);
+      r2.write(postData);
+      r2.end();
+    });
+    if (result.success) sendJSON(res, 200, { success: true, url: result.data.url });
+    else sendJSON(res, 500, { error: "图片上传失败" });
+  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+}
+
 async function handleSMSList(req, res) {
   const { username, password, did, contact } = await readBody(req);
   if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
@@ -160,6 +200,8 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === "/api/sms/send") return handleSMSSend(req, res);
     if (parsed.pathname === "/api/sms/list") return handleSMSList(req, res);
     if (parsed.pathname === "/api/sms/conversations") return handleSMSList(req, res);
+    if (parsed.pathname === "/api/mms/send") return handleMMSSend(req, res);
+    if (parsed.pathname === "/api/upload") return handleImageUpload(req, res);
     if (parsed.pathname === "/api/calls/log") return handleCallLog(req, res);
     if (parsed.pathname === "/api/dids") return handleDIDs(req, res);
   }
