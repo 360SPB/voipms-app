@@ -293,8 +293,9 @@ const COLORS=['#25d366','#00a884','#53bdeb','#fcbf49','#f77f00','#d62828','#7b2d
 function getColor(s){let h=0;for(let c of (s||'?'))h=c.charCodeAt(0)+((h<<5)-h);return COLORS[Math.abs(h)%COLORS.length];}
 function ini(n){return(n||'?').trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
-function getContactName(num){const c=contacts.find(c=>c.num.replace(/\D/g,'')===( num||'').replace(/\D/g,''));return c?c.name:num;}
-function getContactNote(num){const c=contacts.find(c=>c.num.replace(/\D/g,'')===( num||'').replace(/\D/g,''));return c&&c.note?c.note:'';}
+function norm10(s){const d=(s||'').replace(/\D/g,'');return d.length===11&&d[0]==='1'?d.slice(1):d;}
+function getContactName(num){const c=contacts.find(c=>norm10(c.num)===norm10(num));return c?c.name:num;}
+function getContactNote(num){const c=contacts.find(c=>norm10(c.num)===norm10(num));return c&&c.note?c.note:'';}
 function fmtNum(num){if(!num||num.length<10)return num;const n=num.replace(/\D/g,'');return '+1 ('+n.slice(0,3)+') '+n.slice(3,6)+'-'+n.slice(6);}
 
 // AUTO LOGIN
@@ -553,7 +554,7 @@ function confirmNewChat(){
   const num=document.getElementById('new-chat-num').value.replace(/\D/g,'');
   if(num.length<10){showToast('请输入10位号码','error');return;}
   closeModal('modal-new-chat');
-  const ex=allThreads.find(t=>t.contact.replace(/\D/g,'')===num);
+  const ex=allThreads.find(t=>norm10(t.contact)===norm10(num));
   if(ex){openThread(ex);return;}
   const t={contact:num,msgs:[],lastTime:new Date().toISOString()};
   allThreads.unshift(t);renderThreadList(allThreads);openThread(t);
@@ -618,7 +619,7 @@ function deleteContact(i){
   renderContacts();showToast('已删除','success');
 }
 function msgContact(num){
-  const ex=allThreads.find(t=>t.contact.replace(/\D/g,'')===num.replace(/\D/g,''));
+  const ex=allThreads.find(t=>norm10(t.contact)===norm10(num));
   if(isMobile())switchMobileView('chats');else switchTab('chats');
   if(ex){openThread(ex);return;}
   const t={contact:num,msgs:[],lastTime:new Date().toISOString()};
@@ -626,7 +627,7 @@ function msgContact(num){
 }
 function addCurrentToContacts(){
   if(!currentThread)return;
-  const ex=contacts.findIndex(c=>c.num.replace(/\D/g,'')===currentThread.contact.replace(/\D/g,''));
+  const ex=contacts.findIndex(c=>norm10(c.num)===norm10(currentThread.contact));
   if(ex>=0)editContact(ex);
   else openAddContact(currentThread.contact);
 }
