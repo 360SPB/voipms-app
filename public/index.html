@@ -415,7 +415,7 @@ async function loadThreads(){
     });
     allThreads=Object.values(map).sort((a,b)=>b.lastTime.localeCompare(a.lastTime));
     renderThreadList(allThreads);
-  }catch(e){showToast('加载消息失败','error');}
+  }catch(e){console.log('loadThreads error:',e);}
 }
 
 function renderThreadList(threads){
