@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-:root{--bg:#111b21;--bg2:#202c33;--bg3:#2a3942;--bg4:#3b4a54;--border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);--text:#e9edef;--text2:#8696a0;--text3:#667781;--green:#00a884;--green2:#005c4b;--green3:#d9fdd3;--blue:#53bdeb;--red:#f15c6d;--amber:#ffd279;--sent:#005c4b;--recv:#202c33;}
+:root{--bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;--bg4:#e5e5e5;--border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.12);--text:#1a1a1a;--text2:#666666;--text3:#999999;--green:#07c160;--green2:#06ad56;--green3:#1a1a1a;--blue:#10aeff;--red:#fa5151;--amber:#ff9500;--sent:#95ec69;--recv:#ffffff;}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;font-size:14px;}
 #login-screen{display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;padding:20px;}
 .login-card{background:var(--bg2);border-radius:16px;padding:40px 32px;width:100%;max-width:380px;}
@@ -68,7 +68,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .chat-header{height:56px;background:var(--bg2);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;border-bottom:1px solid var(--border);}
 .ch-name{font-size:16px;font-weight:600;}
 .ch-status{font-size:12px;color:var(--text2);}
-.messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.02) 1px,transparent 0);background-size:20px 20px;}
+.messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;background-image:radial-gradient(circle at 1px 1px,rgba(0,0,0,0.03) 1px,transparent 0);background-size:20px 20px;}
 .messages::-webkit-scrollbar{width:4px;}
 .messages::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px;}
 .day-label{text-align:center;margin:12px 0;}
@@ -77,13 +77,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .msg-row.sent{justify-content:flex-end;}
 .msg-row.recv{justify-content:flex-start;}
 .msg-bubble{max-width:65%;padding:8px 12px 6px;border-radius:8px;word-break:break-word;position:relative;}
-.msg-row.sent .msg-bubble{background:var(--sent);border-bottom-right-radius:2px;color:var(--green3);}
-.msg-row.recv .msg-bubble{background:var(--recv);border-bottom-left-radius:2px;color:var(--text);}
+.msg-row.sent .msg-bubble{background:var(--sent);border-bottom-right-radius:2px;color:#1a1a1a;box-shadow:0 1px 2px rgba(0,0,0,0.06);}
+.msg-row.recv .msg-bubble{background:var(--recv);border-bottom-left-radius:2px;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.06);}
 .msg-text{font-size:14px;line-height:1.5;}
 .msg-meta{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:2px;}
-.msg-time{font-size:11px;color:rgba(255,255,255,0.4);}
-.msg-row.sent .msg-time{color:rgba(217,253,211,0.6);}
-.msg-tick{font-size:14px;color:rgba(217,253,211,0.5);}
+.msg-time{font-size:11px;color:rgba(0,0,0,0.35);}
+.msg-row.sent .msg-time{color:rgba(0,0,0,0.4);}
+.msg-tick{font-size:14px;color:rgba(0,0,0,0.35);}
 .msg-tick.read{color:var(--blue);}
 .compose-bar{background:var(--bg2);padding:8px 12px;display:flex;align-items:flex-end;gap:8px;flex-shrink:0;border-top:1px solid var(--border);}
 .compose-wrap{flex:1;background:var(--bg3);border-radius:22px;display:flex;align-items:flex-end;padding:8px 14px;gap:8px;}
@@ -119,7 +119,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .call-ctrl{width:60px;height:60px;border-radius:50%;border:none;background:var(--bg3);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;}
 .call-ctrl.active{background:var(--bg4);}
 .call-end{width:68px;height:68px;border-radius:50%;border:none;background:var(--red);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:28px;}
-.toast{display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg3);border-radius:24px;padding:10px 20px;font-size:13px;color:var(--text);z-index:300;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.5);}
+.toast{display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333333;border-radius:24px;padding:10px 20px;font-size:13px;color:#fff;z-index:300;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.25);}
 @media(max-width:768px){.sidebar{display:none;}.chat-area{display:none;}.mobile-nav{display:flex;}.back-btn{display:flex;}#mobile-list-view{display:flex;}#app-screen .app-body{overflow:hidden;}}
 @media(min-width:769px){.mobile-nav{display:none;}#mobile-list-view{display:none;}#mobile-chat-view{display:none;}}
 </style>
@@ -232,7 +232,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
           <button class="icon-btn" onclick="refreshMessages()"><i class="ti ti-refresh"></i></button>
         </div>
       </div>
-      <div id="mob-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.02) 1px,transparent 0);background-size:20px 20px;"></div>
+      <div id="mob-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;background-image:radial-gradient(circle at 1px 1px,rgba(0,0,0,0.03) 1px,transparent 0);background-size:20px 20px;"></div>
       <div class="compose-bar">
         <div class="compose-wrap">
           <button class="attach-btn" onclick="document.getElementById('file-input').click()"><i class="ti ti-photo"></i></button>
@@ -688,7 +688,7 @@ function showToast(msg,type){
   const t=document.getElementById('toast');
   const icon=document.getElementById('toast-icon');
   document.getElementById('toast-msg').textContent=msg;
-  const colors={success:'var(--green)',error:'var(--red)',info:'var(--text2)',warn:'var(--amber)'};
+  const colors={success:'var(--green)',error:'var(--red)',info:'#ccc',warn:'var(--amber)'};
   const icons={success:'ti-circle-check',error:'ti-circle-x',info:'ti-info-circle',warn:'ti-alert-triangle'};
   icon.className='ti '+(icons[type]||'ti-info-circle');
   icon.style.color=colors[type]||'var(--green)';
