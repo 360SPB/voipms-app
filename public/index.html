@@ -264,6 +264,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     <h3 id="contact-modal-title">添加联系人</h3>
     <div class="modal-field"><label>姓名</label><input type="text" id="contact-name-input" placeholder="联系人姓名"></div>
     <div class="modal-field"><label>电话号码</label><input type="tel" id="contact-num-input" placeholder="如：6261234567" onkeydown="if(event.key==='Enter')saveContact()"></div>
+    <div class="modal-field"><label>备注</label><input type="text" id="contact-note-input" placeholder="选填，如：同事/家人"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('modal-contact')">取消</button>
       <button class="btn-confirm" onclick="saveContact()">保存</button>
@@ -293,6 +294,8 @@ function getColor(s){let h=0;for(let c of (s||'?'))h=c.charCodeAt(0)+((h<<5)-h);
 function ini(n){return(n||'?').trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
 function getContactName(num){const c=contacts.find(c=>c.num.replace(/\D/g,'')===( num||'').replace(/\D/g,''));return c?c.name:num;}
+function getContactNote(num){const c=contacts.find(c=>c.num.replace(/\D/g,'')===( num||'').replace(/\D/g,''));return c&&c.note?c.note:'';}
+function fmtNum(num){if(!num||num.length<10)return num;const n=num.replace(/\D/g,'');return '+1 ('+n.slice(0,3)+') '+n.slice(3,6)+'-'+n.slice(6);}
 
 // AUTO LOGIN
 window.addEventListener('load',()=>{
@@ -425,11 +428,14 @@ function renderThreadList(threads){
     el.innerHTML='';
     threads.forEach(t=>{
       const name=getContactName(t.contact);
+      const hasName=(name!==t.contact);
       const last=t.msgs.length>0?t.msgs[t.msgs.length-1]:{date:t.lastTime,message:'',type:''};
       const color=getColor(name);
       const div=document.createElement('div');
       div.className='thread-item'+(currentThread&&currentThread.contact===t.contact?' active':'');
-      div.innerHTML=`<div class="t-avatar" style="background:${color}">${ini(name)}</div><div class="t-info"><div class="t-top"><span class="t-name">${esc(name)}</span><span class="t-time">${fmtTime(last.date)}</span></div><div class="t-bottom"><span class="t-preview">${last.type==='sent'?'你: ':''}${esc((last.message||'新对话').slice(0,35))}</span></div></div>`;
+      const avatarContent=hasName?ini(name):'<i class="ti ti-phone" style="font-size:18px"></i>';
+      const displayName=hasName?(name+' ('+fmtNum(t.contact)+')'):fmtNum(t.contact);
+      div.innerHTML=`<div class="t-avatar" style="background:${color}">${avatarContent}</div><div class="t-info"><div class="t-top"><span class="t-name">${esc(displayName)}</span><span class="t-time">${fmtTime(last.date)}</span></div><div class="t-bottom"><span class="t-preview">${last.type==='sent'?'你: ':''}${esc((last.message||'新对话').slice(0,35))}</span></div></div>`;
       div.onclick=()=>openThread(t);
       el.appendChild(div);
     });
@@ -465,20 +471,22 @@ async function openThread(t){
   const name=getContactName(t.contact);
   const color=getColor(name);
   const i=ini(name);
+  const note=getContactNote(t.contact);
+  const hasName=(name!==t.contact);
   if(isMobile()){
     document.getElementById('mobile-list-view').style.display='none';
     document.getElementById('mobile-chat-view').style.display='flex';
     document.getElementById('mob-chat-avatar').textContent=i;
     document.getElementById('mob-chat-avatar').style.background=color;
-    document.getElementById('mob-chat-name').textContent=name;
-    document.getElementById('mob-chat-num').textContent=t.contact;
+    document.getElementById('mob-chat-name').textContent=hasName?(name+' '+fmtNum(t.contact)):fmtNum(t.contact);
+    document.getElementById('mob-chat-num').textContent=note||(hasName?t.contact:'');
   }else{
     document.getElementById('empty-chat').style.display='none';
     document.getElementById('chat-container').style.display='flex';
     document.getElementById('chat-avatar').textContent=i;
     document.getElementById('chat-avatar').style.background=color;
-    document.getElementById('chat-name').textContent=name;
-    document.getElementById('chat-num').textContent=t.contact;
+    document.getElementById('chat-name').textContent=hasName?(name+' '+fmtNum(t.contact)):fmtNum(t.contact);
+    document.getElementById('chat-num').textContent=note||(hasName?t.contact:'');
   }
   renderMessages(isMobile()?'mob-messages':'messages',t.msgs);
   renderThreadList(allThreads);
@@ -581,6 +589,7 @@ function openAddContact(prefillNum=''){
   document.getElementById('contact-modal-title').textContent='添加联系人';
   document.getElementById('contact-name-input').value='';
   document.getElementById('contact-num-input').value=prefillNum;
+  document.getElementById('contact-note-input').value='';
   document.getElementById('modal-contact').style.display='flex';
   setTimeout(()=>document.getElementById('contact-name-input').focus(),100);
 }
@@ -589,14 +598,16 @@ function editContact(i){
   document.getElementById('contact-modal-title').textContent='编辑联系人';
   document.getElementById('contact-name-input').value=contacts[i].name;
   document.getElementById('contact-num-input').value=contacts[i].num;
+  document.getElementById('contact-note-input').value=contacts[i].note||'';
   document.getElementById('modal-contact').style.display='flex';
 }
 function saveContact(){
   const name=document.getElementById('contact-name-input').value.trim();
   const num=document.getElementById('contact-num-input').value.replace(/\D/g,'');
+  const note=document.getElementById('contact-note-input').value.trim();
   if(!name||!num){showToast('请填写姓名和号码','error');return;}
-  if(editingIdx>=0){contacts[editingIdx]={name,num};showToast('联系人已更新','success');}
-  else{contacts.push({name,num});showToast('已添加 '+name,'success');}
+  if(editingIdx>=0){contacts[editingIdx]={name,num,note};showToast('联系人已更新','success');}
+  else{contacts.push({name,num,note});showToast('已添加 '+name,'success');}
   localStorage.setItem('vc_contacts',JSON.stringify(contacts));
   closeModal('modal-contact');renderContacts();renderThreadList(allThreads);
 }
