@@ -140,6 +140,17 @@ async function handleImageUpload(req, res) {
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
+async function handleMMSList(req, res) {
+  const { username, password, did, contact } = await readBody(req);
+  if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
+  try {
+    const params = { api_username: username, api_password: password, method: "getMMS", did };
+    if (contact) params.contact = contact;
+    const result = await voipmsRequest(params);
+    sendJSON(res, 200, result);
+  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+}
+
 async function handleSMSList(req, res) {
   const { username, password, did, contact } = await readBody(req);
   if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
@@ -201,6 +212,7 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === "/api/sms/list") return handleSMSList(req, res);
     if (parsed.pathname === "/api/sms/conversations") return handleSMSList(req, res);
     if (parsed.pathname === "/api/mms/send") return handleMMSSend(req, res);
+    if (parsed.pathname === "/api/mms/list") return handleMMSList(req, res);
     if (parsed.pathname === "/api/upload") return handleImageUpload(req, res);
     if (parsed.pathname === "/api/calls/log") return handleCallLog(req, res);
     if (parsed.pathname === "/api/dids") return handleDIDs(req, res);
