@@ -504,7 +504,7 @@ async function openThread(t){
   renderMessages(isMobile()?'mob-messages':'messages',sortedMsgs);
   renderThreadList(allThreads);
   try{
-    const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:t.contact})});
+    const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:norm10(t.contact)})});
     const data=await r.json();
     if(data.sms){
       let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
@@ -539,7 +539,7 @@ async function refreshMessages(){
   if(!currentThread)return;
   showToast('刷新中...','info');
   try{
-    const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:currentThread.contact})});
+    const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:norm10(currentThread.contact)})});
     const data=await r.json();
     if(data.sms){
       let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
@@ -764,7 +764,7 @@ setInterval(async ()=>{
   if(!AUTH||!currentDID)return;
   if(currentThread){
     try{
-      const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:currentThread.contact})});
+      const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:norm10(currentThread.contact)})});
       const data=await r.json();
       if(data.sms){
         let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
