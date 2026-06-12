@@ -26,6 +26,13 @@ async function mergeMMS(msgs,contact){
 }
 
 // AUTO LOGIN
+(function(){
+  const saved=localStorage.getItem('vc_auth');
+  if(saved){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('loading-screen').style.display='flex';
+  }
+})();
 window.addEventListener('load',()=>{
   const saved=localStorage.getItem('vc_auth');
   if(saved){
@@ -35,7 +42,7 @@ window.addEventListener('load',()=>{
       document.getElementById('l-pass').value=a.password;
       AUTH=a;
       autoLogin(a);
-    }catch(e){localStorage.removeItem('vc_auth');}
+    }catch(e){localStorage.removeItem('vc_auth');document.getElementById('loading-screen').style.display='none';document.getElementById('login-screen').style.display='flex';}
   }
 });
 
@@ -44,11 +51,17 @@ async function autoLogin(a){
     const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(a)});
     const data=await r.json();
     if(data.success){
+      document.getElementById('loading-screen').style.display='none';
       setupApp(a,data.dids||[]);
     }else{
       localStorage.removeItem('vc_auth');
+      document.getElementById('loading-screen').style.display='none';
+      document.getElementById('login-screen').style.display='flex';
     }
-  }catch(e){}
+  }catch(e){
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+  }
 }
 
 async function doLogin(){
