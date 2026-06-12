@@ -296,6 +296,19 @@ function getContactName(num){const c=contacts.find(c=>norm10(c.num)===norm10(num
 function getContactNote(num){const c=contacts.find(c=>norm10(c.num)===norm10(num));return c&&c.note?c.note:'';}
 function fmtNum(num){if(!num||num.length<10)return num;const n=num.replace(/\D/g,'');return '+1 ('+n.slice(0,3)+') '+n.slice(3,6)+'-'+n.slice(6);}
 
+async function mergeMMS(msgs,contact){
+  try{
+    const r=await fetch(API+'/api/mms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID})});
+    const data=await r.json();
+    if(!data.sms)return msgs;
+    const mmsForContact=data.sms.filter(m=>norm10(m.contact)===norm10(contact)&&m.media1);
+    const merged=[...msgs,...mmsForContact];
+    const seen=new Set();
+    const dedup=merged.filter(m=>{if(seen.has(m.id))return false;seen.add(m.id);return true;});
+    return dedup.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  }catch(e){return msgs;}
+}
+
 // AUTO LOGIN
 window.addEventListener('load',()=>{
   const saved=localStorage.getItem('vc_auth');
@@ -493,7 +506,11 @@ async function openThread(t){
   try{
     const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:t.contact})});
     const data=await r.json();
-    if(data.sms){const msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));t.msgs=msgs;renderMessages(isMobile()?'mob-messages':'messages',msgs);}
+    if(data.sms){
+      let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
+      msgs=await mergeMMS(msgs,t.contact);
+      t.msgs=msgs;renderMessages(isMobile()?'mob-messages':'messages',msgs);
+    }
   }catch(e){}
 }
 
@@ -508,7 +525,11 @@ function renderMessages(elId,msgs){
     const row=document.createElement('div');
     row.className='msg-row '+(sent?'sent':'recv');
     const time=(m.date||'').slice(11,16);
-    row.innerHTML=`<div class="msg-bubble"><div class="msg-text">${esc(m.message||'')}</div><div class="msg-meta"><span class="msg-time">${time}</span>${sent?'<i class="ti ti-checks msg-tick read"></i>':''}</div></div>`;
+    const hasImg=m.media1&&m.media1.length>0;
+    const bodyHtml=hasImg
+      ? '<img src="'+esc(m.media1)+'" style="max-width:240px;border-radius:8px;display:block;'+(m.message?'margin-bottom:4px;':'')+'">'+(m.message?'<div class="msg-text">'+esc(m.message)+'</div>':'')
+      : '<div class="msg-text">'+esc(m.message||'')+'</div>';
+    row.innerHTML='<div class="msg-bubble">'+bodyHtml+'<div class="msg-meta"><span class="msg-time">'+time+'</span>'+(sent?'<i class="ti ti-checks msg-tick read"></i>':'')+'</div></div>';
     el.appendChild(row);
   });
   el.scrollTop=el.scrollHeight;
@@ -520,7 +541,11 @@ async function refreshMessages(){
   try{
     const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:currentThread.contact})});
     const data=await r.json();
-    if(data.sms){const msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));currentThread.msgs=msgs;renderMessages(isMobile()?'mob-messages':'messages',msgs);showToast('已刷新','success');}
+    if(data.sms){
+      let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
+      msgs=await mergeMMS(msgs,currentThread.contact);
+      currentThread.msgs=msgs;renderMessages(isMobile()?'mob-messages':'messages',msgs);showToast('已刷新','success');
+    }
   }catch(e){showToast('刷新失败','error');}
 }
 
@@ -742,7 +767,8 @@ setInterval(async ()=>{
       const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:currentThread.contact})});
       const data=await r.json();
       if(data.sms){
-        const msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
+        let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
+        msgs=await mergeMMS(msgs,currentThread.contact);
         if(JSON.stringify(msgs)!==JSON.stringify(currentThread.msgs)){
           currentThread.msgs=msgs;
           renderMessages(isMobile()?'mob-messages':'messages',msgs);
