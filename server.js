@@ -159,6 +159,7 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === "/api/login") return handleLogin(req, res);
     if (parsed.pathname === "/api/sms/send") return handleSMSSend(req, res);
     if (parsed.pathname === "/api/sms/list") return handleSMSList(req, res);
+    if (parsed.pathname === "/api/sms/conversations") return handleSMSList(req, res);
     if (parsed.pathname === "/api/calls/log") return handleCallLog(req, res);
     if (parsed.pathname === "/api/dids") return handleDIDs(req, res);
   }
