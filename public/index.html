@@ -681,7 +681,39 @@ function endCall(){clearInterval(callTimerInterval);document.getElementById('cal
 
 function closeModal(id){document.getElementById(id).style.display='none';}
 document.addEventListener('click',e=>{if(e.target.classList.contains('modal-overlay'))e.target.style.display='none';});
-function handleFileSelect(e){showToast('图片/视频MMS暂不支持','info');e.target.value='';}
+
+async function handleFileSelect(e){
+  const file=e.target.files[0];
+  e.target.value='';
+  if(!file||!currentThread)return;
+  if(!file.type.startsWith('image/')){showToast('仅支持图片','error');return;}
+  if(file.size>5*1024*1024){showToast('图片不能超过5MB','error');return;}
+  showToast('上传中...','info');
+  try{
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const upRes=await fetch(API+'/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:base64})});
+    const upData=await upRes.json();
+    if(!upData.success){showToast('图片上传失败','error');return;}
+    const imgUrl=upData.url;
+    const elId=isMobile()?'mob-messages':'messages';
+    const el=document.getElementById(elId);
+    const now=new Date();
+    const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    const row=document.createElement('div');
+    row.className='msg-row sent';
+    row.innerHTML='<div class="msg-bubble"><img src="'+imgUrl+'" style="max-width:240px;border-radius:8px;display:block;"><div class="msg-meta"><span class="msg-time">'+time+'</span><i class="ti ti-check msg-tick"></i></div></div>';
+    el.appendChild(row);el.scrollTop=el.scrollHeight;
+    const sendRes=await fetch(API+'/api/mms/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,dst:currentThread.contact,message:'',mediaUrl:imgUrl})});
+    const sendData=await sendRes.json();
+    if(sendData.status==='success'){row.querySelector('.msg-tick').className='ti ti-checks msg-tick read';showToast('图片发送成功','success');loadThreads();}
+    else showToast('MMS发送失败: '+(sendData.status||'错误'),'error');
+  }catch(err){showToast('发送失败','error');}
+}
 
 let toastTimer=null;
 function showToast(msg,type){
