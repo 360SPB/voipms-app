@@ -289,8 +289,7 @@ const API='https://voipms-app.onrender.com';
 let AUTH=null,currentDID='',currentThread=null,allThreads=[],callTimerInterval=null,callSec=0,editingIdx=-1;
 let contacts=JSON.parse(localStorage.getItem('vc_contacts')||'[]');
 const isMobile=()=>window.innerWidth<=768;
-const COLORS=['#25d366','#00a884','#53bdeb','#fcbf49','#f77f00','#d62828','#7b2d8b','#4a90d9'];
-function getColor(s){let h=0;for(let c of (s||'?'))h=c.charCodeAt(0)+((h<<5)-h);return COLORS[Math.abs(h)%COLORS.length];}
+function getColor(s){return '#07c160';}
 function ini(n){return(n||'?').trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
 function norm10(s){const d=(s||'').replace(/\D/g,'');return d.length===11&&d[0]==='1'?d.slice(1):d;}
