@@ -70,6 +70,13 @@ function sendJSON(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+function toE164(did){
+  const d=(did||'').replace(/\D/g,'');
+  if(d.length===10)return '+1'+d;
+  if(d.length===11&&d[0]==='1')return '+'+d;
+  return did;
+}
+
 function dateRange(days) {
   const to = new Date();
   const from = new Date();
@@ -155,7 +162,7 @@ async function handleSMSList(req, res) {
   const { username, password, did, contact } = await readBody(req);
   if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
   const { date_from, date_to } = dateRange(60);
-  const params = { api_username: username, api_password: password, method: "getSMS", did, date_from, date_to, limit: "500", timezone: "-8" };
+  const params = { api_username: username, api_password: password, method: "getSMS", did: toE164(did), date_from, date_to, limit: "500", timezone: "-8" };
   if (contact) params.contact = contact;
   try {
     const result = await voipmsRequest(params);
