@@ -800,7 +800,7 @@ window.addEventListener('resize',()=>{
   if(!isMobile()){document.getElementById('mobile-list-view').style.display='none';document.getElementById('mobile-chat-view').style.display='none';}
 });
 
-// AUTO POLL: 每5秒自动检查新消息
+// AUTO POLL: 每20秒自动检查新消息（降低频率以避免触发VoIP.ms API限流）
 setInterval(async ()=>{
   if(!AUTH||!currentDID)return;
   if(currentThread){
@@ -808,17 +808,18 @@ setInterval(async ()=>{
       const r=await fetch(API+'/api/sms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password,did:currentDID,contact:norm10(currentThread.contact)})});
       const data=await r.json();
       if(data.sms){
-        let msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
-        msgs=await mergeMMS(msgs,currentThread.contact);
+        const msgs=data.sms.sort((a,b)=>a.date.localeCompare(b.date));
         if(JSON.stringify(msgs)!==JSON.stringify(currentThread.msgs)){
-          currentThread.msgs=msgs;
-          renderMessages(isMobile()?'mob-messages':'messages',msgs);
+          const merged=await mergeMMS(msgs,currentThread.contact);
+          currentThread.msgs=merged;
+          renderMessages(isMobile()?'mob-messages':'messages',merged);
         }
       }
     }catch(e){}
+  }else{
+    loadThreads();
   }
-  loadThreads();
-},5000);
+},20000);
 </script>
 </body>
 </html>
