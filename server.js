@@ -80,10 +80,25 @@ const DEFAULT_EMPLOYEES = [
   // { username: "zhang@company.com", password: "123456", did: "6266621315", name: "张三" },
   // { username: "li@company.com",   password: "abcdef", did: "2135551234", name: "李四" },
 ];
-let EMPLOYEES = DEFAULT_EMPLOYEES;
+let EMPLOYEES = DEFAULT_EMPLOYEES.slice();
 try {
   if (process.env.EMPLOYEES_JSON) EMPLOYEES = JSON.parse(process.env.EMPLOYEES_JSON);
 } catch (e) { console.log("EMPLOYEES_JSON 解析失败，使用代码内默认配置"); }
+
+// 支持逐行添加：环境变量 EMPLOYEE_1, EMPLOYEE_2, EMPLOYEE_3 ...
+// 每个值格式为: 登录账号,登录密码,DID号码,姓名(可选)
+// 例如: zhang@company.com,abc123456,6266621315,Jack
+// 这些会附加到 EMPLOYEES_JSON 已有的员工列表后面
+for (let i = 1; i <= 200; i++) {
+  const line = process.env["EMPLOYEE_" + i];
+  if (!line) continue;
+  const parts = line.split(",").map(s => s.trim());
+  if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+    EMPLOYEES.push({ username: parts[0], password: parts[1], did: parts[2], name: parts[3] || parts[0] });
+  } else {
+    console.log("EMPLOYEE_" + i + " 格式不正确，应为: 账号,密码,号码[,姓名]");
+  }
+}
 
 // VoIP.ms 主账号 API 凭证（仅服务端调用VoIP.ms时使用，永远不会发给前端）
 const MAIN_API_USER = process.env.VOIPMS_API_USER || "";
