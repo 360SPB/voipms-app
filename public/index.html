@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
@@ -300,7 +300,7 @@ let pendingImageBase64=null,pendingImageUrl=null;
 let contacts=JSON.parse(localStorage.getItem('vc_contacts')||'[]');
 async function loadContacts(){
   try{
-    const r=await fetch(API+'/api/contacts/list',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const r=await fetch(API+'/api/contacts/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password})});
     const data=await r.json();
     if(data.success&&Array.isArray(data.contacts)){
       contacts=data.contacts;
@@ -699,7 +699,7 @@ async function saveContact(){
   localStorage.setItem('vc_contacts',JSON.stringify(contacts));
   closeModal('modal-contact');renderContacts();renderThreadList(allThreads);
   try{
-    await fetch(API+'/api/contacts/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num,name,note})});
+    await fetch(API+'/api/contacts/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num,name,note,username:AUTH.username,password:AUTH.password})});
   }catch(e){}
 }
 async function deleteContact(i){
@@ -708,7 +708,7 @@ async function deleteContact(i){
   contacts.splice(i,1);localStorage.setItem('vc_contacts',JSON.stringify(contacts));
   renderContacts();showToast('已删除','success');
   try{
-    await fetch(API+'/api/contacts/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num})});
+    await fetch(API+'/api/contacts/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num,username:AUTH.username,password:AUTH.password})});
   }catch(e){}
 }
 function msgContact(num){
