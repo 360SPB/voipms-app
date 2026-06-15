@@ -188,6 +188,22 @@ function dateRange(days) {
   return { date_from: fmt(from), date_to: fmt(to) };
 }
 
+// VoIP.ms单条短信API限制约160字符，超长消息自动按词边界拆分，
+// 并加上 (i/n) 序号前缀，依次发送
+function splitMessage(msg, limit) {
+  if (msg.length <= limit) return [msg];
+  const parts = [];
+  let remaining = msg.trim();
+  while (remaining.length > limit) {
+    let cut = remaining.lastIndexOf(" ", limit);
+    if (cut <= 0) cut = limit;
+    parts.push(remaining.slice(0, cut).trim());
+    remaining = remaining.slice(cut).trim();
+  }
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
 async function handleLogin(req, res) {
   const { username, password } = await readBody(req);
   if (!username || !password) return sendJSON(res, 400, { error: "缺少用户名或密码" });
@@ -205,7 +221,14 @@ async function handleSMSSend(req, res) {
   if (!did || !dst || !message) return sendJSON(res, 400, { error: "缺少必要参数" });
   if (!employeeOwnsDID(emp, did)) return sendJSON(res, 403, { error: "无权使用该号码" });
   try {
-    const result = await voipmsRequest({ api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "sendSMS", did, dst, message });
+    const SMS_LIMIT = 140; // 留出"(i/n) "前缀的空间，确保单条不超过160字符
+    const parts = message.length <= 160 ? [message] : splitMessage(message, SMS_LIMIT);
+    let result = null;
+    for (let i = 0; i < parts.length; i++) {
+      const text = parts.length > 1 ? "(" + (i + 1) + "/" + parts.length + ") " + parts[i] : parts[i];
+      result = await voipmsRequest({ api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "sendSMS", did, dst, message: text });
+      if (result.status !== "success") break;
+    }
     sendJSON(res, 200, result);
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
