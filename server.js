@@ -70,6 +70,66 @@ function sendJSON(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://cflyhuqfybsecoulvmjs.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_KEY || "";
+
+function supabaseRequest(path, method, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(SUPABASE_URL + "/rest/v1/" + path);
+    const postData = body ? JSON.stringify(body) : null;
+    const options = {
+      hostname: url.hostname,
+      path: url.pathname + url.search,
+      method: method,
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": "Bearer " + SUPABASE_KEY,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal"
+      }
+    };
+    if (postData) options.headers["Content-Length"] = Buffer.byteLength(postData);
+    const r = https.request(options, (res) => {
+      let data = "";
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => {
+        try { resolve(data ? JSON.parse(data) : []); }
+        catch (e) { resolve([]); }
+      });
+    });
+    r.on("error", reject);
+    if (postData) r.write(postData);
+    r.end();
+  });
+}
+
+async function saveMessagesToSupabase(msgs, did) {
+  if (!msgs || msgs.length === 0) return;
+  const rows = msgs.map(m => ({
+    id: String(m.id),
+    date: m.date || "",
+    did: did,
+    contact: m.contact || "",
+    type: String(m.type || ""),
+    message: m.message || "",
+    col_media1: m.col_media1 || "",
+    carrier_status: m.carrier_status || ""
+  }));
+  try {
+    await supabaseRequest("messages", "POST", rows);
+  } catch (e) { console.log("supabase save error:", e.message); }
+}
+
+async function getMessagesFromSupabase(did, contact) {
+  try {
+    let path = "messages?did=eq." + encodeURIComponent(did);
+    if (contact) path += "&contact=eq." + encodeURIComponent(contact);
+    path += "&order=date.asc&limit=1000";
+    const result = await supabaseRequest(path, "GET");
+    return Array.isArray(result) ? result : [];
+  } catch (e) { return []; }
+}
+
 function toE164(did){
   const d=(did||'').replace(/\D/g,'');
   if(d.length===10)return '+1'+d;
@@ -150,12 +210,22 @@ async function handleImageUpload(req, res) {
 async function handleMMSList(req, res) {
   const { username, password, did, contact } = await readBody(req);
   if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
+  let liveMsgs = [];
   try {
     const params = { api_username: username, api_password: password, method: "getMMS", did };
     if (contact) params.contact = contact;
     const result = await voipmsRequest(params);
-    sendJSON(res, 200, result);
-  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+    if (result.status === "success" && Array.isArray(result.sms)) {
+      liveMsgs = result.sms;
+      saveMessagesToSupabase(liveMsgs, did);
+    }
+  } catch (e) { console.log("getMMS error:", e.message); }
+  const cached = await getMessagesFromSupabase(did, contact);
+  const merged = [...cached, ...liveMsgs];
+  const seen = new Set();
+  const dedup = merged.filter(m => { if (seen.has(String(m.id))) return false; seen.add(String(m.id)); return true; });
+  dedup.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  sendJSON(res, 200, { status: "success", sms: dedup });
 }
 
 async function handleSMSList(req, res) {
@@ -164,10 +234,24 @@ async function handleSMSList(req, res) {
   const { date_from, date_to } = dateRange(60);
   const params = { api_username: username, api_password: password, method: "getSMS", did: toE164(did), date_from, date_to, limit: "500", timezone: "-8" };
   if (contact) params.contact = contact;
+  let liveMsgs = [];
   try {
     const result = await voipmsRequest(params);
-    sendJSON(res, 200, result);
-  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+    if (result.status === "success" && Array.isArray(result.sms)) {
+      liveMsgs = result.sms;
+      saveMessagesToSupabase(liveMsgs, did);
+    }
+  } catch (e) { console.log("getSMS error:", e.message); }
+  const cached = await getMessagesFromSupabase(did, contact);
+  const merged = [...cached, ...liveMsgs];
+  const seen = new Set();
+  const dedup = merged.filter(m => { if (seen.has(String(m.id))) return false; seen.add(String(m.id)); return true; });
+  dedup.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  if (dedup.length === 0) {
+    sendJSON(res, 200, { status: "no_sms", message: "There are no SMS messages" });
+  } else {
+    sendJSON(res, 200, { status: "success", sms: dedup });
+  }
 }
 
 async function handleCallLog(req, res) {
