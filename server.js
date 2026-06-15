@@ -254,6 +254,31 @@ async function handleSMSList(req, res) {
   }
 }
 
+async function handleContactsList(req, res) {
+  try {
+    const result = await supabaseRequest("contacts?order=name.asc", "GET");
+    sendJSON(res, 200, { success: true, contacts: Array.isArray(result) ? result : [] });
+  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+}
+
+async function handleContactsSave(req, res) {
+  const { num, name, note } = await readBody(req);
+  if (!num || !name) return sendJSON(res, 400, { error: "缺少必要参数" });
+  try {
+    await supabaseRequest("contacts", "POST", [{ num, name, note: note || "" }]);
+    sendJSON(res, 200, { success: true });
+  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+}
+
+async function handleContactsDelete(req, res) {
+  const { num } = await readBody(req);
+  if (!num) return sendJSON(res, 400, { error: "缺少必要参数" });
+  try {
+    await supabaseRequest("contacts?num=eq." + encodeURIComponent(num), "DELETE");
+    sendJSON(res, 200, { success: true });
+  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+}
+
 async function handleCallLog(req, res) {
   const { username, password } = await readBody(req);
   if (!username || !password) return sendJSON(res, 400, { error: "缺少必要参数" });
@@ -306,6 +331,9 @@ const server = http.createServer(async (req, res) => {
     if (parsed.pathname === "/api/mms/list") return handleMMSList(req, res);
     if (parsed.pathname === "/api/upload") return handleImageUpload(req, res);
     if (parsed.pathname === "/api/calls/log") return handleCallLog(req, res);
+    if (parsed.pathname === "/api/contacts/list") return handleContactsList(req, res);
+    if (parsed.pathname === "/api/contacts/save") return handleContactsSave(req, res);
+    if (parsed.pathname === "/api/contacts/delete") return handleContactsDelete(req, res);
     if (parsed.pathname === "/api/dids") return handleDIDs(req, res);
   }
   serveStatic(req, res);
