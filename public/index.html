@@ -800,7 +800,7 @@ window.addEventListener('resize',()=>{
   if(!isMobile()){document.getElementById('mobile-list-view').style.display='none';document.getElementById('mobile-chat-view').style.display='none';}
 });
 
-// AUTO POLL: 每20秒自动检查新消息（降低频率以避免触发VoIP.ms API限流）
+// AUTO POLL: 每5秒自动检查新消息
 setInterval(async ()=>{
   if(!AUTH||!currentDID)return;
   if(currentThread){
@@ -819,7 +819,7 @@ setInterval(async ()=>{
   }else{
     loadThreads();
   }
-},20000);
+},5000);
 </script>
 </body>
 </html>
