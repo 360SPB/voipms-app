@@ -188,10 +188,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
         <button class="fab" onclick="openAddContact()"><i class="ti ti-user-plus"></i></button>
       </div>
       <div id="panel-calls" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-        <div style="padding:12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;justify-content:flex-end;">
-          <button onclick="openDialpad()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--green);border:none;border-radius:20px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="ti ti-dialpad"></i> 拨号</button>
+        <div style="padding:16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
+          <div style="font-size:24px;font-family:monospace;text-align:center;padding:10px;letter-spacing:4px;color:var(--text);min-height:46px;background:var(--bg3);border-radius:10px;margin-bottom:12px;" id="dp-input-desk">&#8203;</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+            <button class="dp-btn" onclick="dpKey('1')">1</button>
+            <button class="dp-btn" onclick="dpKey('2')">2<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">ABC</sub></button>
+            <button class="dp-btn" onclick="dpKey('3')">3<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">DEF</sub></button>
+            <button class="dp-btn" onclick="dpKey('4')">4<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">GHI</sub></button>
+            <button class="dp-btn" onclick="dpKey('5')">5<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">JKL</sub></button>
+            <button class="dp-btn" onclick="dpKey('6')">6<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">MNO</sub></button>
+            <button class="dp-btn" onclick="dpKey('7')">7<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">PQRS</sub></button>
+            <button class="dp-btn" onclick="dpKey('8')">8<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">TUV</sub></button>
+            <button class="dp-btn" onclick="dpKey('9')">9<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">WXYZ</sub></button>
+            <button class="dp-btn" onclick="dpKey('*')">*</button>
+            <button class="dp-btn" onclick="dpKey('0')">0</button>
+            <button class="dp-btn" onclick="dpKey('#')">#</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px;">
+            <div style="width:44px"></div>
+            <button onclick="dpCall()" style="width:60px;height:60px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-phone"></i></button>
+            <button onclick="dpDel()" style="width:44px;height:44px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-backspace"></i></button>
+          </div>
         </div>
-        <div class="list-container" id="calls-list"><div style="padding:40px;text-align:center;color:var(--text3)">加载中...</div></div>
+        <div class="list-container" id="calls-list" style="flex:1;"><div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">通话记录</div></div>
       </div>
     </div>
     <div class="chat-area" id="chat-area">
@@ -241,11 +260,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
         <div class="list-container" id="mob-contacts-list"></div>
         <button class="fab" onclick="openAddContact()"><i class="ti ti-user-plus"></i></button>
       </div>
-      <div id="mob-panel-calls" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-        <div style="padding:12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;justify-content:flex-end;">
-          <button onclick="openDialpad()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--green);border:none;border-radius:20px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="ti ti-dialpad"></i> 拨号</button>
+      <div id="mob-panel-calls" style="display:none;flex-direction:column;flex:1;overflow:hidden;position:relative;">
+        <div class="list-container" id="mob-calls-list" style="flex:1;min-height:0;"></div>
+        <button id="mob-dp-fab" onclick="showMobDialpad()" style="position:absolute;bottom:16px;right:16px;width:56px;height:56px;border-radius:50%;background:var(--green);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,168,132,0.4);z-index:10;"><i class="ti ti-dialpad"></i></button>
+        <div id="mob-dialpad-section" style="display:none;flex-direction:column;flex:1;min-height:0;">
+          <div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);">
+            <button onclick="hideMobDialpad()" style="border:none;background:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px;margin-right:8px;"><i class="ti ti-arrow-left"></i></button>
+            <span style="font-size:15px;font-weight:600;">拨号</span>
+          </div>
+          <div id="mob-dp-contacts" style="flex:1;overflow-y:auto;background:var(--bg2);min-height:0;"></div>
+          <div style="padding:10px 16px 8px;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;">
+            <div style="font-size:22px;font-family:monospace;text-align:center;padding:8px;letter-spacing:4px;color:var(--text);min-height:40px;background:var(--bg3);border-radius:10px;margin-bottom:10px;" id="dp-input-mob">&#8203;</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+              <button class="dp-btn" onclick="dpKey('1')" style="padding:12px;font-size:18px;">1</button>
+              <button class="dp-btn" onclick="dpKey('2')" style="padding:12px;font-size:18px;">2<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">ABC</sub></button>
+              <button class="dp-btn" onclick="dpKey('3')" style="padding:12px;font-size:18px;">3<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">DEF</sub></button>
+              <button class="dp-btn" onclick="dpKey('4')" style="padding:12px;font-size:18px;">4<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">GHI</sub></button>
+              <button class="dp-btn" onclick="dpKey('5')" style="padding:12px;font-size:18px;">5<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">JKL</sub></button>
+              <button class="dp-btn" onclick="dpKey('6')" style="padding:12px;font-size:18px;">6<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">MNO</sub></button>
+              <button class="dp-btn" onclick="dpKey('7')" style="padding:12px;font-size:18px;">7<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">PQRS</sub></button>
+              <button class="dp-btn" onclick="dpKey('8')" style="padding:12px;font-size:18px;">8<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">TUV</sub></button>
+              <button class="dp-btn" onclick="dpKey('9')" style="padding:12px;font-size:18px;">9<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">WXYZ</sub></button>
+              <button class="dp-btn" onclick="dpKey('*')" style="padding:12px;font-size:18px;">*</button>
+              <button class="dp-btn" onclick="dpKey('0')" style="padding:12px;font-size:18px;">0<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">+</sub></button>
+              <button class="dp-btn" onclick="dpKey('#')" style="padding:12px;font-size:18px;">#</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px;margin-bottom:4px;">
+              <div style="width:44px"></div>
+              <button onclick="dpCall()" style="width:56px;height:56px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-phone"></i></button>
+              <button onclick="dpDel()" style="width:44px;height:44px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-backspace"></i></button>
+            </div>
+          </div>
         </div>
-        <div class="list-container" id="mob-calls-list"></div>
       </div>
     </div>
     <div id="mobile-chat-view">
@@ -963,13 +1009,43 @@ function toggleMute() {
 }
 
 // 拨号盘
+let dpVisible = false;
 function openDialpad() { dpNumber = ''; updateDpDisplay(); document.getElementById('dialpad-overlay').style.display = 'flex'; }
 function closeDialpad() { document.getElementById('dialpad-overlay').style.display = 'none'; }
-function dpKey(k) { if (dpNumber.length < 15) { dpNumber += k; updateDpDisplay(); } }
-function dpDel() { dpNumber = dpNumber.slice(0, -1); updateDpDisplay(); }
-function updateDpDisplay() { document.getElementById('dp-input').textContent = dpNumber || '\u200b'; }
+function dpKey(k) {
+  if (dpNumber.length < 15) { dpNumber += k; updateDpDisplay(); updateDpContacts(); }
+}
+function dpDel() { dpNumber = dpNumber.slice(0, -1); updateDpDisplay(); updateDpContacts(); }
+function updateDpDisplay() {
+  const v = dpNumber || '\u200b';
+  ['dp-input-desk','dp-input-mob'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = v; });
+}
+function showMobDialpad() {
+  dpVisible = true; dpNumber = ''; updateDpDisplay(); updateDpContacts();
+  document.getElementById('mob-calls-list').style.display = 'none';
+  document.getElementById('mob-dialpad-section').style.display = 'flex';
+  document.getElementById('mob-dp-fab').style.display = 'none';
+}
+function hideMobDialpad() {
+  dpVisible = false; dpNumber = ''; updateDpDisplay();
+  document.getElementById('mob-calls-list').style.display = 'block';
+  document.getElementById('mob-dialpad-section').style.display = 'none';
+  document.getElementById('mob-dp-fab').style.display = 'flex';
+}
+function updateDpContacts() {
+  const el = document.getElementById('mob-dp-contacts');
+  if (!el) return;
+  if (!dpNumber) { el.innerHTML = ''; return; }
+  const matches = contacts.filter(c => c.num.includes(dpNumber) || (c.name && c.name.toLowerCase().includes(dpNumber.toLowerCase()))).slice(0, 4);
+  el.innerHTML = matches.map(c => `<div onclick="dpSelectContact('${c.name}','${c.num}')" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
+    <div style="width:40px;height:40px;border-radius:50%;background:${getColor(c.name)};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0;">${ini(c.name)}</div>
+    <div><div style="font-size:14px;font-weight:500;">${esc(c.name)}</div><div style="font-size:12px;color:var(--text3);font-family:monospace;">${c.num}</div></div>
+  </div>`).join('');
+}
+function dpSelectContact(name, num) { dpNumber = num; updateDpDisplay(); }
 function dpCall() {
   if (!dpNumber) return;
+  if (dpVisible) hideMobDialpad();
   closeDialpad();
   const name = getContactName(dpNumber) || dpNumber;
   startCallTo(name, dpNumber);
