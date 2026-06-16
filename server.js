@@ -447,6 +447,31 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res);
 });
 
+// ===== SIP WebSocket 代理 =====
+// 浏览器(中国) → wss://your-render-app/sip-proxy → Render(美国) → wss://sanjose2.voip.ms
+// 解决中国大陆无法直连VoIP.ms WSS的问题
+try {
+  const WebSocket = require("ws");
+  const SIP_TARGET = "wss://sanjose2.voip.ms";
+  const wss = new WebSocket.Server({ server, path: "/sip-proxy" });
+  wss.on("connection", (clientWs, req) => {
+    console.log("SIP代理: 新连接来自", req.socket.remoteAddress);
+    const upstream = new WebSocket(SIP_TARGET, ["sip"], {
+      headers: { "User-Agent": "VoIP-Proxy/1.0" }
+    });
+    upstream.on("open", () => { console.log("SIP代理: 已连接到VoIP.ms"); });
+    upstream.on("message", (data) => { if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data); });
+    upstream.on("close", (code, reason) => { console.log("SIP代理: 上游关闭", code); if (clientWs.readyState === WebSocket.OPEN) clientWs.close(code, reason); });
+    upstream.on("error", (err) => { console.log("SIP代理: 上游错误", err.message); if (clientWs.readyState === WebSocket.OPEN) clientWs.close(1011, err.message); });
+    clientWs.on("message", (data) => { if (upstream.readyState === WebSocket.OPEN) upstream.send(data); });
+    clientWs.on("close", (code, reason) => { if (upstream.readyState === WebSocket.OPEN) upstream.close(code, reason); });
+    clientWs.on("error", (err) => { console.log("SIP代理: 客户端错误", err.message); });
+  });
+  console.log("SIP WebSocket代理已启动: /sip-proxy → " + SIP_TARGET);
+} catch(e) {
+  console.log("SIP代理未启动(ws模块未安装):", e.message);
+}
+
 server.listen(PORT, () => {
   console.log("");
   console.log("  VoIP Connect 服务器已启动");
