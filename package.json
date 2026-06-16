@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "voipms-connect",
   "version": "1.0.0",
   "description": "VoIP.ms Web客户端",
@@ -8,5 +8,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "jssip": "^3.13.8",
+    "ws": "^8.18.0"
   }
 }
