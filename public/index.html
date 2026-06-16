@@ -166,7 +166,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     <span class="topbar-title">VC美国电话</span>
     <select class="did-pill" id="did-selector" onchange="onDIDChange()"></select>
     <div style="display:flex;gap:4px;">
-      <button class="icon-btn" onclick="openNewChat()" title="新建对话"><i class="ti ti-edit"></i></button>
+      <button class="icon-btn" onclick="doLogout()" title="退出登录"><i class="ti ti-logout"></i></button>
       <button class="icon-btn" onclick="doLogout()" title="退出"><i class="ti ti-logout"></i></button>
     </div>
   </div>
@@ -217,7 +217,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
       <div class="empty-chat" id="empty-chat">
         <div class="ei">💬</div>
         <h3 style="font-size:18px;color:var(--text2);font-weight:400;">VC美国电话</h3>
-        <p style="font-size:13px;text-align:center;max-width:260px;line-height:1.6;">选择对话开始聊天<br>或点击右上角新建对话</p>
+        <p style="font-size:13px;text-align:center;max-width:260px;line-height:1.6;">选择对话开始聊天</p>
       </div>
       <div id="chat-container" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
         <div class="chat-header">
@@ -322,7 +322,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     <button class="mob-nav-btn active" id="mob-nav-chats" onclick="switchMobileView('chats')"><i class="ti ti-message-2"></i><span>聊天</span></button>
     <button class="mob-nav-btn" id="mob-nav-contacts" onclick="switchMobileView('contacts')"><i class="ti ti-users"></i><span>联系人</span></button>
     <button class="mob-nav-btn" id="mob-nav-calls" onclick="switchMobileView('calls')"><i class="ti ti-phone"></i><span>通话</span></button>
-    <button class="mob-nav-btn" id="mob-nav-new" onclick="openNewChat()"><i class="ti ti-edit"></i><span>新建</span></button>
   </div>
 </div>
 <div class="modal-overlay" id="modal-new-chat">
@@ -583,7 +582,7 @@ async function loadThreads(){
 function renderThreadList(threads){
   ['thread-list','mob-thread-list'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
-    if(threads.length===0){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">暂无消息<br><small>点击右下角+新建对话</small></div>';return;}
+    if(threads.length===0){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">暂无消息</div>';return;}
     el.innerHTML='';
     threads.forEach(t=>{
       const name=getContactName(t.contact);
