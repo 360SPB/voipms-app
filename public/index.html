@@ -1,10 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>VC美国电话</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="/jssip.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{--bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;--bg4:#e5e5e5;--border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.12);--text:#1a1a1a;--text2:#666666;--text3:#999999;--green:#07c160;--green2:#06ad56;--green3:#1a1a1a;--blue:#10aeff;--red:#fa5151;--amber:#ff9500;--sent:#95ec69;--recv:#ffffff;}
@@ -123,6 +124,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .call-ctrl{width:60px;height:60px;border-radius:50%;border:none;background:var(--bg3);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;}
 .call-ctrl.active{background:var(--bg4);}
 .call-end{width:68px;height:68px;border-radius:50%;border:none;background:var(--red);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:28px;}
+.dialpad-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:150;align-items:flex-end;justify-content:center;}
+.dialpad-sheet{background:var(--bg2);border-radius:24px 24px 0 0;padding:24px;width:100%;max-width:400px;}
+.dialpad-input{font-size:28px;font-family:monospace;text-align:center;padding:12px;letter-spacing:4px;color:var(--text);min-height:52px;margin-bottom:16px;}
+.dialpad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.dp-btn{padding:16px;border:none;background:var(--bg3);border-radius:12px;font-size:20px;font-weight:600;cursor:pointer;color:var(--text);transition:background 0.15s;}
+.dp-btn:hover{background:var(--bg4);}
+.dp-btn sub{font-size:10px;color:var(--text3);display:block;font-weight:400;}
+.dp-actions{display:flex;align-items:center;justify-content:space-between;padding:0 16px;}
+.dp-call-btn{width:68px;height:68px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.dp-del-btn{width:52px;height:52px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.incoming-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:250;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+.incoming-actions{display:flex;gap:48px;margin-top:16px;}
+.btn-answer{width:68px;height:68px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.btn-reject{width:68px;height:68px;border-radius:50%;border:none;background:var(--red);color:#fff;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .toast{display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333333;border-radius:24px;padding:10px 20px;font-size:13px;color:#fff;z-index:300;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.25);}
 @media(max-width:768px){.sidebar{display:none;}.chat-area{display:none;}.mobile-nav{display:flex;}.back-btn{display:flex;}#mobile-list-view{display:flex;}#app-screen .app-body{overflow:hidden;}#mobile-list-view>.sidebar-tabs{display:none;}}
 @media(min-width:769px){.mobile-nav{display:none;}#mobile-list-view{display:none;}#mobile-chat-view{display:none;}}
@@ -151,8 +166,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     <span class="topbar-title">VC美国电话</span>
     <select class="did-pill" id="did-selector" onchange="onDIDChange()"></select>
     <div style="display:flex;gap:4px;">
-      <button class="icon-btn" onclick="openNewChat()" title="新建对话"><i class="ti ti-edit"></i></button>
-      <button class="icon-btn" onclick="doLogout()" title="退出"><i class="ti ti-logout"></i></button>
+      <button class="icon-btn" onclick="doLogout()" title="退出登录"><i class="ti ti-logout"></i></button>
     </div>
   </div>
   <div class="app-body">
@@ -173,14 +187,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
         <button class="fab" onclick="openAddContact()"><i class="ti ti-user-plus"></i></button>
       </div>
       <div id="panel-calls" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-        <div class="list-container" id="calls-list"><div style="padding:40px;text-align:center;color:var(--text3)">加载中...</div></div>
+        <div style="padding:16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
+          <div style="font-size:24px;font-family:monospace;text-align:center;padding:10px;letter-spacing:4px;color:var(--text);min-height:46px;background:var(--bg3);border-radius:10px;margin-bottom:12px;" id="dp-input-desk">&#8203;</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+            <button class="dp-btn" onclick="dpKey('1')">1</button>
+            <button class="dp-btn" onclick="dpKey('2')">2<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">ABC</sub></button>
+            <button class="dp-btn" onclick="dpKey('3')">3<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">DEF</sub></button>
+            <button class="dp-btn" onclick="dpKey('4')">4<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">GHI</sub></button>
+            <button class="dp-btn" onclick="dpKey('5')">5<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">JKL</sub></button>
+            <button class="dp-btn" onclick="dpKey('6')">6<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">MNO</sub></button>
+            <button class="dp-btn" onclick="dpKey('7')">7<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">PQRS</sub></button>
+            <button class="dp-btn" onclick="dpKey('8')">8<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">TUV</sub></button>
+            <button class="dp-btn" onclick="dpKey('9')">9<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">WXYZ</sub></button>
+            <button class="dp-btn" onclick="dpKey('*')">*</button>
+            <button class="dp-btn" onclick="dpKey('0')">0</button>
+            <button class="dp-btn" onclick="dpKey('#')">#</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px;">
+            <div style="width:44px"></div>
+            <button onclick="dpCall()" style="width:60px;height:60px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-phone"></i></button>
+            <button onclick="dpDel()" style="width:44px;height:44px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-backspace"></i></button>
+          </div>
+        </div>
+        <div class="list-container" id="calls-list" style="flex:1;"><div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">通话记录</div></div>
       </div>
     </div>
     <div class="chat-area" id="chat-area">
       <div class="empty-chat" id="empty-chat">
         <div class="ei">💬</div>
         <h3 style="font-size:18px;color:var(--text2);font-weight:400;">VC美国电话</h3>
-        <p style="font-size:13px;text-align:center;max-width:260px;line-height:1.6;">选择对话开始聊天<br>或点击右上角新建对话</p>
+        <p style="font-size:13px;text-align:center;max-width:260px;line-height:1.6;">选择对话开始聊天</p>
       </div>
       <div id="chat-container" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
         <div class="chat-header">
@@ -223,8 +259,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
         <div class="list-container" id="mob-contacts-list"></div>
         <button class="fab" onclick="openAddContact()"><i class="ti ti-user-plus"></i></button>
       </div>
-      <div id="mob-panel-calls" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-        <div class="list-container" id="mob-calls-list"></div>
+      <div id="mob-panel-calls" style="display:none;flex-direction:column;flex:1;overflow:hidden;position:relative;">
+        <div class="list-container" id="mob-calls-list" style="flex:1;min-height:0;"></div>
+        <button id="mob-dp-fab" onclick="showMobDialpad()" style="position:absolute;bottom:16px;right:16px;width:56px;height:56px;border-radius:50%;background:var(--green);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,168,132,0.4);z-index:10;"><i class="ti ti-dialpad"></i></button>
+        <div id="mob-dialpad-section" style="display:none;flex-direction:column;flex:1;min-height:0;">
+          <div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);">
+            <button onclick="hideMobDialpad()" style="border:none;background:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px;margin-right:8px;"><i class="ti ti-arrow-left"></i></button>
+            <span style="font-size:15px;font-weight:600;">拨号</span>
+          </div>
+          <div id="mob-dp-contacts" style="flex:1;overflow-y:auto;background:var(--bg2);min-height:0;"></div>
+          <div style="padding:10px 16px 8px;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;">
+            <div style="font-size:22px;font-family:monospace;text-align:center;padding:8px;letter-spacing:4px;color:var(--text);min-height:40px;background:var(--bg3);border-radius:10px;margin-bottom:10px;" id="dp-input-mob">&#8203;</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+              <button class="dp-btn" onclick="dpKey('1')" style="padding:12px;font-size:18px;">1</button>
+              <button class="dp-btn" onclick="dpKey('2')" style="padding:12px;font-size:18px;">2<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">ABC</sub></button>
+              <button class="dp-btn" onclick="dpKey('3')" style="padding:12px;font-size:18px;">3<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">DEF</sub></button>
+              <button class="dp-btn" onclick="dpKey('4')" style="padding:12px;font-size:18px;">4<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">GHI</sub></button>
+              <button class="dp-btn" onclick="dpKey('5')" style="padding:12px;font-size:18px;">5<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">JKL</sub></button>
+              <button class="dp-btn" onclick="dpKey('6')" style="padding:12px;font-size:18px;">6<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">MNO</sub></button>
+              <button class="dp-btn" onclick="dpKey('7')" style="padding:12px;font-size:18px;">7<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">PQRS</sub></button>
+              <button class="dp-btn" onclick="dpKey('8')" style="padding:12px;font-size:18px;">8<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">TUV</sub></button>
+              <button class="dp-btn" onclick="dpKey('9')" style="padding:12px;font-size:18px;">9<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">WXYZ</sub></button>
+              <button class="dp-btn" onclick="dpKey('*')" style="padding:12px;font-size:18px;">*</button>
+              <button class="dp-btn" onclick="dpKey('0')" style="padding:12px;font-size:18px;">0<sub style="font-size:9px;color:var(--text3);display:block;font-weight:400">+</sub></button>
+              <button class="dp-btn" onclick="dpKey('#')" style="padding:12px;font-size:18px;">#</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px;margin-bottom:4px;">
+              <div style="width:44px"></div>
+              <button onclick="dpCall()" style="width:56px;height:56px;border-radius:50%;border:none;background:var(--green);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-phone"></i></button>
+              <button onclick="dpDel()" style="width:44px;height:44px;border-radius:50%;border:none;background:var(--bg3);color:var(--text2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-backspace"></i></button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="mobile-chat-view">
@@ -255,7 +321,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     <button class="mob-nav-btn active" id="mob-nav-chats" onclick="switchMobileView('chats')"><i class="ti ti-message-2"></i><span>聊天</span></button>
     <button class="mob-nav-btn" id="mob-nav-contacts" onclick="switchMobileView('contacts')"><i class="ti ti-users"></i><span>联系人</span></button>
     <button class="mob-nav-btn" id="mob-nav-calls" onclick="switchMobileView('calls')"><i class="ti ti-phone"></i><span>通话</span></button>
-    <button class="mob-nav-btn" id="mob-nav-new" onclick="openNewChat()"><i class="ti ti-edit"></i><span>新建</span></button>
   </div>
 </div>
 <div class="modal-overlay" id="modal-new-chat">
@@ -286,21 +351,63 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
   <div style="font-size:15px;color:var(--text2);" id="call-status">正在拨号...</div>
   <div style="font-size:20px;font-family:monospace;color:var(--green);min-height:28px;" id="call-timer"></div>
   <div class="call-controls">
-    <button class="call-ctrl" onclick="this.classList.toggle('active')"><i class="ti ti-microphone-off"></i></button>
+    <button class="call-ctrl" id="mute-btn" onclick="toggleMute()"><i class="ti ti-microphone-off"></i></button>
     <button class="call-end" onclick="endCall()"><i class="ti ti-phone-off"></i></button>
-    <button class="call-ctrl"><i class="ti ti-volume"></i></button>
+    <button class="call-ctrl" id="spk-btn"><i class="ti ti-volume"></i></button>
+  </div>
+</div>
+<div class="dialpad-overlay" id="dialpad-overlay" onclick="if(event.target===this)closeDialpad()">
+  <div class="dialpad-sheet">
+    <div style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:8px;">拨打电话</div>
+    <div class="dialpad-input" id="dp-input">&#8203;</div>
+    <div class="dialpad-grid">
+      <button class="dp-btn" onclick="dpKey('1')">1<sub></sub></button>
+      <button class="dp-btn" onclick="dpKey('2')">2<sub>ABC</sub></button>
+      <button class="dp-btn" onclick="dpKey('3')">3<sub>DEF</sub></button>
+      <button class="dp-btn" onclick="dpKey('4')">4<sub>GHI</sub></button>
+      <button class="dp-btn" onclick="dpKey('5')">5<sub>JKL</sub></button>
+      <button class="dp-btn" onclick="dpKey('6')">6<sub>MNO</sub></button>
+      <button class="dp-btn" onclick="dpKey('7')">7<sub>PQRS</sub></button>
+      <button class="dp-btn" onclick="dpKey('8')">8<sub>TUV</sub></button>
+      <button class="dp-btn" onclick="dpKey('9')">9<sub>WXYZ</sub></button>
+      <button class="dp-btn" onclick="dpKey('*')">*</button>
+      <button class="dp-btn" onclick="dpKey('0')">0<sub>+</sub></button>
+      <button class="dp-btn" onclick="dpKey('#')">#</button>
+    </div>
+    <div class="dp-actions">
+      <div style="width:52px"></div>
+      <button class="dp-call-btn" onclick="dpCall()"><i class="ti ti-phone"></i></button>
+      <button class="dp-del-btn" onclick="dpDel()"><i class="ti ti-backspace"></i></button>
+    </div>
+  </div>
+</div>
+<div class="incoming-overlay" id="incoming-overlay">
+  <div class="call-avatar" id="inc-av" style="background:var(--green)">?</div>
+  <div style="font-size:26px;font-weight:700;color:#fff;" id="inc-name">来电</div>
+  <div style="font-size:15px;color:rgba(255,255,255,0.6);" id="inc-num"></div>
+  <div style="font-size:13px;color:rgba(255,255,255,0.5);">来电中...</div>
+  <div class="incoming-actions">
+    <div style="text-align:center">
+      <button class="btn-reject" onclick="rejectCall()"><i class="ti ti-phone-off"></i></button>
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;">拒绝</div>
+    </div>
+    <div style="text-align:center">
+      <button class="btn-answer" onclick="answerCall()"><i class="ti ti-phone"></i></button>
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;">接听</div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"><i id="toast-icon" class="ti ti-info-circle"></i><span id="toast-msg"></span></div>
+<audio id="remote-audio" autoplay playsinline style="display:none"></audio>
 <input type="file" id="file-input" accept="image/*,video/*" style="display:none" onchange="handleFileSelect(event)">
 <script>
 const API='https://voipms-app.onrender.com';
-let AUTH=null,currentDID='',currentThread=null,allThreads=[],callTimerInterval=null,callSec=0,editingIdx=-1;
+let AUTH=null,currentDID='',currentThread=null,allThreads=[],editingIdx=-1;
 let pendingImageBase64=null,pendingImageUrl=null;
 let contacts=JSON.parse(localStorage.getItem('vc_contacts')||'[]');
 async function loadContacts(){
   try{
-    const r=await fetch(API+'/api/contacts/list',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const r=await fetch(API+'/api/contacts/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:AUTH.username,password:AUTH.password})});
     const data=await r.json();
     if(data.success&&Array.isArray(data.contacts)){
       contacts=data.contacts;
@@ -405,6 +512,7 @@ function setupApp(auth,dids){
   renderContacts();
   loadContacts();
   loadCallLog();
+  setTimeout(initSIP, 500);
 }
 
 function showErr(msg){const el=document.getElementById('login-error');el.textContent=msg;el.style.display='block';}
@@ -417,7 +525,7 @@ function doLogout(){
   document.getElementById('login-screen').style.display='flex';
 }
 
-function onDIDChange(){currentDID=document.getElementById('did-selector').value;loadThreads();}
+function onDIDChange(){currentDID=document.getElementById('did-selector').value;loadThreads();setTimeout(initSIP,300);}
 
 function switchTab(tab){
   ['chats','contacts','calls'].forEach(t=>{
@@ -473,7 +581,7 @@ async function loadThreads(){
 function renderThreadList(threads){
   ['thread-list','mob-thread-list'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
-    if(threads.length===0){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">暂无消息<br><small>点击右下角+新建对话</small></div>';return;}
+    if(threads.length===0){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">暂无消息</div>';return;}
     el.innerHTML='';
     threads.forEach(t=>{
       const name=getContactName(t.contact);
@@ -699,7 +807,7 @@ async function saveContact(){
   localStorage.setItem('vc_contacts',JSON.stringify(contacts));
   closeModal('modal-contact');renderContacts();renderThreadList(allThreads);
   try{
-    await fetch(API+'/api/contacts/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num,name,note})});
+    await fetch(API+'/api/contacts/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num,name,note,username:AUTH.username,password:AUTH.password})});
   }catch(e){}
 }
 async function deleteContact(i){
@@ -708,7 +816,7 @@ async function deleteContact(i){
   contacts.splice(i,1);localStorage.setItem('vc_contacts',JSON.stringify(contacts));
   renderContacts();showToast('已删除','success');
   try{
-    await fetch(API+'/api/contacts/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num})});
+    await fetch(API+'/api/contacts/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({num,username:AUTH.username,password:AUTH.password})});
   }catch(e){}
 }
 function msgContact(num){
@@ -752,27 +860,194 @@ function renderCallLog(cdr){
   });
 }
 
-function startCall(){if(!currentThread)return;startCallTo(getContactName(currentThread.contact),currentThread.contact);}
-function startCallTo(name,num){
-  const color=getColor(name);
-  document.getElementById('call-av').textContent=ini(name);
-  document.getElementById('call-av').style.background=color;
-  document.getElementById('call-name-disp').textContent=name;
-  document.getElementById('call-status').textContent='正在拨号...';
-  document.getElementById('call-timer').textContent='';
-  document.getElementById('call-overlay').style.display='flex';
-  callSec=0;
-  setTimeout(()=>{
-    document.getElementById('call-status').textContent='通话中';
-    callTimerInterval=setInterval(()=>{
-      callSec++;
-      const m=Math.floor(callSec/60).toString().padStart(2,'0');
-      const s=(callSec%60).toString().padStart(2,'0');
-      document.getElementById('call-timer').textContent=m+':'+s;
-    },1000);
-  },1500);
+// ===== WebRTC / JsSIP 通话核心 =====
+let ua = null, currentSession = null, isMuted = false, callTimerInterval = null, callSec = 0;
+let dpNumber = '';
+const WSS_SERVER = 'wss://sanjose2.voip.ms';
+const SIP_DOMAIN = 'sanjose2.voip.ms';
+const SIP_PASSWORD = 'Eagle194250star';
+// 子账号映射：DID -> SIP用户名
+const DID_TO_SIP = {
+  '3258996606': '549145_Irene',
+  '6579998182': '549145_Rita',
+  '6266621315': '549145_Frank',
+  '7198860866': '549145_Jessica',
+  '9708058668': '549145_Joan'
+};
+
+function getSipUser() {
+  return DID_TO_SIP[currentDID] || null;
 }
-function endCall(){clearInterval(callTimerInterval);document.getElementById('call-overlay').style.display='none';showToast('通话已结束','info');}
+
+function initSIP() {
+  const sipUser = getSipUser();
+  if (!sipUser) { console.log('无对应SIP子账号'); return; }
+  if (ua) { try { ua.stop(); } catch(e){} ua = null; }
+  const socket = new JsSIP.WebSocketInterface(WSS_SERVER);
+  const config = {
+    sockets: [socket],
+    uri: 'sip:' + sipUser + '@' + SIP_DOMAIN,
+    password: SIP_PASSWORD,
+    register: true,
+    register_expires: 300,
+    connection_recovery_min_interval: 2,
+    connection_recovery_max_interval: 30,
+  };
+  ua = new JsSIP.UA(config);
+  ua.on('registered', () => { console.log('SIP已注册:', sipUser); showToast('通话就绪', 'success'); });
+  ua.on('registrationFailed', (e) => { console.log('SIP注册失败:', e.cause); });
+  ua.on('newRTCSession', (e) => {
+    if (e.originator === 'remote') handleIncoming(e.session);
+  });
+  ua.start();
+}
+
+function handleIncoming(session) {
+  currentSession = session;
+  const callerNum = (session.remote_identity.uri.user || '未知号码').replace(/^\+1/, '');
+  const callerName = getContactName(callerNum) || callerNum;
+  document.getElementById('inc-av').textContent = ini(callerName);
+  document.getElementById('inc-name').textContent = callerName;
+  document.getElementById('inc-num').textContent = '+1' + callerNum;
+  document.getElementById('incoming-overlay').style.display = 'flex';
+  session.on('failed', () => { document.getElementById('incoming-overlay').style.display = 'none'; currentSession = null; });
+  session.on('ended', () => { document.getElementById('incoming-overlay').style.display = 'none'; endCallUI(); });
+}
+
+function answerCall() {
+  if (!currentSession) return;
+  document.getElementById('incoming-overlay').style.display = 'none';
+  const callerNum = (currentSession.remote_identity.uri.user || '').replace(/^\+1/, '');
+  const callerName = getContactName(callerNum) || callerNum;
+  showCallUI(callerName, '通话中');
+  currentSession.answer({ mediaConstraints: { audio: true, video: false } });
+  currentSession.connection.addEventListener('addstream', (e) => {
+    const audio = document.getElementById('remote-audio');
+    audio.srcObject = e.streams[0];
+    audio.play().catch(()=>{});
+  });
+  currentSession.on('ended', () => endCallUI());
+  currentSession.on('failed', () => endCallUI());
+  startCallTimer();
+}
+
+function rejectCall() {
+  if (currentSession) { currentSession.terminate(); currentSession = null; }
+  document.getElementById('incoming-overlay').style.display = 'none';
+}
+
+function startCallTo(name, num) {
+  if (!ua || !ua.isRegistered()) { showToast('SIP未连接，请稍候重试', 'error'); return; }
+  const dst = num.replace(/\D/g, '').replace(/^1/, '');
+  const target = 'sip:1' + dst + '@' + SIP_DOMAIN;
+  showCallUI(name || dst, '正在拨号...');
+  const options = {
+    mediaConstraints: { audio: true, video: false },
+    pcConfig: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  };
+  currentSession = ua.call(target, options);
+  currentSession.on('progress', () => setCallStatus('正在拨号...'));
+  currentSession.on('accepted', () => { setCallStatus('通话中'); startCallTimer(); });
+  currentSession.on('confirmed', () => { setCallStatus('通话中'); });
+  currentSession.on('ended', () => endCallUI());
+  currentSession.on('failed', (e) => { showToast('通话失败: ' + (e.cause||''), 'error'); endCallUI(); });
+  currentSession.connection.addEventListener('addstream', (e) => {
+    const audio = document.getElementById('remote-audio');
+    audio.srcObject = e.streams[0];
+    audio.play().catch(()=>{});
+  });
+}
+
+function startCall() { if (!currentThread) return; startCallTo(getContactName(currentThread.contact), currentThread.contact); }
+
+function showCallUI(name, status) {
+  const color = getColor(name);
+  document.getElementById('call-av').textContent = ini(name);
+  document.getElementById('call-av').style.background = color;
+  document.getElementById('call-name-disp').textContent = name;
+  document.getElementById('call-status').textContent = status;
+  document.getElementById('call-timer').textContent = '';
+  document.getElementById('call-overlay').style.display = 'flex';
+  callSec = 0; isMuted = false;
+  document.getElementById('mute-btn').classList.remove('active');
+}
+
+function setCallStatus(s) { document.getElementById('call-status').textContent = s; }
+
+function startCallTimer() {
+  clearInterval(callTimerInterval);
+  callSec = 0;
+  callTimerInterval = setInterval(() => {
+    callSec++;
+    const m = Math.floor(callSec / 60).toString().padStart(2, '0');
+    const s = (callSec % 60).toString().padStart(2, '0');
+    document.getElementById('call-timer').textContent = m + ':' + s;
+  }, 1000);
+}
+
+function endCallUI() {
+  clearInterval(callTimerInterval);
+  document.getElementById('call-overlay').style.display = 'none';
+  currentSession = null; isMuted = false;
+  loadCallLog();
+}
+
+function endCall() {
+  if (currentSession) {
+    try { currentSession.terminate(); } catch(e) {}
+  }
+  endCallUI();
+}
+
+function toggleMute() {
+  if (!currentSession) return;
+  isMuted = !isMuted;
+  if (isMuted) { currentSession.mute(); } else { currentSession.unmute(); }
+  document.getElementById('mute-btn').classList.toggle('active', isMuted);
+}
+
+// 拨号盘
+let dpVisible = false;
+function openDialpad() { dpNumber = ''; updateDpDisplay(); document.getElementById('dialpad-overlay').style.display = 'flex'; }
+function closeDialpad() { document.getElementById('dialpad-overlay').style.display = 'none'; }
+function dpKey(k) {
+  if (dpNumber.length < 15) { dpNumber += k; updateDpDisplay(); updateDpContacts(); }
+}
+function dpDel() { dpNumber = dpNumber.slice(0, -1); updateDpDisplay(); updateDpContacts(); }
+function updateDpDisplay() {
+  const v = dpNumber || '\u200b';
+  ['dp-input-desk','dp-input-mob'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = v; });
+}
+function showMobDialpad() {
+  dpVisible = true; dpNumber = ''; updateDpDisplay(); updateDpContacts();
+  document.getElementById('mob-calls-list').style.display = 'none';
+  document.getElementById('mob-dialpad-section').style.display = 'flex';
+  document.getElementById('mob-dp-fab').style.display = 'none';
+}
+function hideMobDialpad() {
+  dpVisible = false; dpNumber = ''; updateDpDisplay();
+  document.getElementById('mob-calls-list').style.display = 'block';
+  document.getElementById('mob-dialpad-section').style.display = 'none';
+  document.getElementById('mob-dp-fab').style.display = 'flex';
+}
+function updateDpContacts() {
+  const el = document.getElementById('mob-dp-contacts');
+  if (!el) return;
+  if (!dpNumber) { el.innerHTML = ''; return; }
+  const matches = contacts.filter(c => c.num.includes(dpNumber) || (c.name && c.name.toLowerCase().includes(dpNumber.toLowerCase()))).slice(0, 4);
+  el.innerHTML = matches.map(c => `<div onclick="dpSelectContact('${c.name}','${c.num}')" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
+    <div style="width:40px;height:40px;border-radius:50%;background:${getColor(c.name)};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0;">${ini(c.name)}</div>
+    <div><div style="font-size:14px;font-weight:500;">${esc(c.name)}</div><div style="font-size:12px;color:var(--text3);font-family:monospace;">${c.num}</div></div>
+  </div>`).join('');
+}
+function dpSelectContact(name, num) { dpNumber = num; updateDpDisplay(); }
+function dpCall() {
+  if (!dpNumber) return;
+  if (dpVisible) hideMobDialpad();
+  closeDialpad();
+  const name = getContactName(dpNumber) || dpNumber;
+  startCallTo(name, dpNumber);
+}
 
 function closeModal(id){document.getElementById(id).style.display='none';}
 document.addEventListener('click',e=>{if(e.target.classList.contains('modal-overlay'))e.target.style.display='none';});

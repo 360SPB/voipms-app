@@ -1,4 +1,4 @@
-﻿const http = require("http");
+const http = require("http");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
@@ -73,6 +73,49 @@ function sendJSON(res, status, data) {
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://cflyhuqfybsecoulvmjs.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "";
 
+// ====== 员工账号配置（每个员工一个独立DID号码） ======
+// 这里的账号密码是"应用登录账号"，跟VoIP.ms账号本身无关
+// 也可以在Render环境变量里设置 EMPLOYEES_JSON（JSON数组字符串），优先级更高
+const DEFAULT_EMPLOYEES = [
+  // { username: "zhang@company.com", password: "123456", did: "6266621315", name: "张三" },
+  // { username: "li@company.com",   password: "abcdef", did: "2135551234", name: "李四" },
+];
+let EMPLOYEES = DEFAULT_EMPLOYEES.slice();
+try {
+  if (process.env.EMPLOYEES_JSON) EMPLOYEES = JSON.parse(process.env.EMPLOYEES_JSON);
+} catch (e) { console.log("EMPLOYEES_JSON 解析失败，使用代码内默认配置"); }
+
+// 支持逐行添加：环境变量 EMPLOYEE_1, EMPLOYEE_2, EMPLOYEE_3 ...
+// 每个值格式为: 登录账号,登录密码,DID号码,姓名(可选)
+// 例如: zhang@company.com,abc123456,6266621315,Jack
+// 这些会附加到 EMPLOYEES_JSON 已有的员工列表后面
+for (let i = 1; i <= 200; i++) {
+  const line = process.env["EMPLOYEE_" + i];
+  if (!line) continue;
+  const parts = line.split(",").map(s => s.trim());
+  if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+    EMPLOYEES.push({ username: parts[0], password: parts[1], did: parts[2], name: parts[3] || parts[0] });
+  } else {
+    console.log("EMPLOYEE_" + i + " 格式不正确，应为: 账号,密码,号码[,姓名]");
+  }
+}
+
+// VoIP.ms 主账号 API 凭证（仅服务端调用VoIP.ms时使用，永远不会发给前端）
+const MAIN_API_USER = process.env.VOIPMS_API_USER || "";
+const MAIN_API_PASS = process.env.VOIPMS_API_PASS || "";
+
+function normDID(d) {
+  const digits = String(d || "").replace(/\D/g, "");
+  return digits.length === 11 && digits[0] === "1" ? digits.slice(1) : digits;
+}
+function findEmployee(username, password) {
+  return EMPLOYEES.find(e => e.username === username && e.password === password) || null;
+}
+function employeeOwnsDID(emp, did) {
+  const dids = Array.isArray(emp.did) ? emp.did : [emp.did];
+  return dids.some(d => normDID(d) === normDID(did));
+}
+
 function supabaseRequest(path, method, body) {
   return new Promise((resolve, reject) => {
     const url = new URL(SUPABASE_URL + "/rest/v1/" + path);
@@ -145,33 +188,68 @@ function dateRange(days) {
   return { date_from: fmt(from), date_to: fmt(to) };
 }
 
+// VoIP.ms单条短信API限制约160字符，超长消息按句子/逗号边界拆分（不强行切断完整句子），
+// 不添加任何序号标记，依次发送
+function splitMessage(msg, limit) {
+  const text = msg.trim();
+  if (text.length <= limit) return [text];
+  const parts = [];
+  let remaining = text;
+  const breakPunct = ".!?。！？，,;；";
+  while (remaining.length > limit) {
+    const window = remaining.slice(0, limit + 1);
+    let cut = -1;
+    for (let i = window.length - 1; i >= 0; i--) {
+      if (breakPunct.includes(window[i])) { cut = i + 1; break; }
+    }
+    if (cut <= 0) {
+      const sp = remaining.lastIndexOf(" ", limit);
+      cut = sp > 0 ? sp : limit;
+    }
+    parts.push(remaining.slice(0, cut).trim());
+    remaining = remaining.slice(cut).trim();
+  }
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
 async function handleLogin(req, res) {
   const { username, password } = await readBody(req);
   if (!username || !password) return sendJSON(res, 400, { error: "缺少用户名或密码" });
-  try {
-    const result = await voipmsRequest({ api_username: username, api_password: password, method: "getDIDsInfo" });
-    if (result.status === "success") {
-      sendJSON(res, 200, { success: true, dids: result.dids || [] });
-    } else {
-      sendJSON(res, 401, { success: false, error: "用户名或密码错误" });
-    }
-  } catch (e) { sendJSON(res, 500, { error: e.message }); }
+  const emp = findEmployee(username, password);
+  if (!emp) return sendJSON(res, 401, { success: false, error: "用户名或密码错误" });
+  const dids = Array.isArray(emp.did) ? emp.did : [emp.did];
+  sendJSON(res, 200, { success: true, dids: dids.map(d => ({ did: d })), name: emp.name || username });
 }
 
 async function handleSMSSend(req, res) {
-  const { username, password, did, dst, message } = await readBody(req);
-  if (!username || !password || !did || !dst || !message) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const body = await readBody(req);
+  const { did, dst, message } = body;
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
+  if (!did || !dst || !message) return sendJSON(res, 400, { error: "缺少必要参数" });
+  if (!employeeOwnsDID(emp, did)) return sendJSON(res, 403, { error: "无权使用该号码" });
   try {
-    const result = await voipmsRequest({ api_username: username, api_password: password, method: "sendSMS", did, dst, message });
+    const SMS_LIMIT = 155;
+    const parts = message.length <= 160 ? [message] : splitMessage(message, SMS_LIMIT);
+    let result = null;
+    for (let i = 0; i < parts.length; i++) {
+      result = await voipmsRequest({ api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "sendSMS", did, dst, message: parts[i] });
+      if (result.status !== "success") break;
+    }
     sendJSON(res, 200, result);
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
 async function handleMMSSend(req, res) {
-  const { username, password, did, dst, message, mediaUrl } = await readBody(req);
-  if (!username || !password || !did || !dst || !mediaUrl) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const body = await readBody(req);
+  const { did, dst, message, mediaUrl } = body;
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
+  if (!did || !dst || !mediaUrl) return sendJSON(res, 400, { error: "缺少必要参数" });
+  if (!employeeOwnsDID(emp, did)) return sendJSON(res, 403, { error: "无权使用该号码" });
   try {
-    const params = { api_username: username, api_password: password, method: "sendMMS", did, dst, message: message || "", media1: mediaUrl };
+    const params = { api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "sendMMS", did, dst, message: message || "", media1: mediaUrl };
     const result = await voipmsRequest(params);
     sendJSON(res, 200, result);
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
@@ -208,11 +286,15 @@ async function handleImageUpload(req, res) {
 }
 
 async function handleMMSList(req, res) {
-  const { username, password, did, contact } = await readBody(req);
-  if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const body = await readBody(req);
+  const { did, contact } = body;
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
+  if (!did) return sendJSON(res, 400, { error: "缺少必要参数" });
+  if (!employeeOwnsDID(emp, did)) return sendJSON(res, 403, { error: "无权使用该号码" });
   let liveMsgs = [];
   try {
-    const params = { api_username: username, api_password: password, method: "getMMS", did };
+    const params = { api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "getMMS", did };
     if (contact) params.contact = contact;
     const result = await voipmsRequest(params);
     if (result.status === "success" && Array.isArray(result.sms)) {
@@ -229,10 +311,14 @@ async function handleMMSList(req, res) {
 }
 
 async function handleSMSList(req, res) {
-  const { username, password, did, contact } = await readBody(req);
-  if (!username || !password || !did) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const body = await readBody(req);
+  const { did, contact } = body;
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
+  if (!did) return sendJSON(res, 400, { error: "缺少必要参数" });
+  if (!employeeOwnsDID(emp, did)) return sendJSON(res, 403, { error: "无权使用该号码" });
   const { date_from, date_to } = dateRange(60);
-  const params = { api_username: username, api_password: password, method: "getSMS", did: toE164(did), date_from, date_to, limit: "500", timezone: "-8" };
+  const params = { api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "getSMS", did: toE164(did), date_from, date_to, limit: "500", timezone: "-8" };
   if (contact) params.contact = contact;
   let liveMsgs = [];
   try {
@@ -255,45 +341,67 @@ async function handleSMSList(req, res) {
 }
 
 async function handleContactsList(req, res) {
+  const body = await readBody(req);
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
+  const did = normDID(Array.isArray(emp.did) ? emp.did[0] : emp.did);
   try {
-    const result = await supabaseRequest("contacts?order=name.asc", "GET");
+    const result = await supabaseRequest("contacts?did=eq." + encodeURIComponent(did) + "&order=name.asc", "GET");
     sendJSON(res, 200, { success: true, contacts: Array.isArray(result) ? result : [] });
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
 async function handleContactsSave(req, res) {
-  const { num, name, note } = await readBody(req);
+  const body = await readBody(req);
+  const { num, name, note } = body;
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
   if (!num || !name) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const did = normDID(Array.isArray(emp.did) ? emp.did[0] : emp.did);
   try {
-    await supabaseRequest("contacts", "POST", [{ num, name, note: note || "" }]);
+    await supabaseRequest("contacts?on_conflict=num,did", "POST", [{ num, name, note: note || "", did }]);
     sendJSON(res, 200, { success: true });
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
 async function handleContactsDelete(req, res) {
-  const { num } = await readBody(req);
+  const body = await readBody(req);
+  const { num } = body;
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
   if (!num) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const did = normDID(Array.isArray(emp.did) ? emp.did[0] : emp.did);
   try {
-    await supabaseRequest("contacts?num=eq." + encodeURIComponent(num), "DELETE");
+    await supabaseRequest("contacts?num=eq." + encodeURIComponent(num) + "&did=eq." + encodeURIComponent(did), "DELETE");
     sendJSON(res, 200, { success: true });
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
 async function handleCallLog(req, res) {
-  const { username, password } = await readBody(req);
-  if (!username || !password) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const body = await readBody(req);
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
   const { date_from, date_to } = dateRange(30);
   try {
-    const result = await voipmsRequest({ api_username: username, api_password: password, method: "getCDR", date_from, date_to, timezone: "-8", answered: "1", noanswer: "1", busy: "1", failed: "1" });
+    const result = await voipmsRequest({ api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "getCDR", date_from, date_to, timezone: "-8", answered: "1", noanswer: "1", busy: "1", failed: "1" });
+    if (result.status === "success" && Array.isArray(result.cdr)) {
+      const myDids = (Array.isArray(emp.did) ? emp.did : [emp.did]).map(normDID);
+      result.cdr = result.cdr.filter(c => myDids.includes(normDID(c.did)));
+    }
     sendJSON(res, 200, result);
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
 
 async function handleDIDs(req, res) {
-  const { username, password } = await readBody(req);
-  if (!username || !password) return sendJSON(res, 400, { error: "缺少必要参数" });
+  const body = await readBody(req);
+  const emp = findEmployee(body.username, body.password);
+  if (!emp) return sendJSON(res, 401, { error: "认证失败，请重新登录" });
   try {
-    const result = await voipmsRequest({ api_username: username, api_password: password, method: "getDIDsInfo" });
+    const result = await voipmsRequest({ api_username: MAIN_API_USER, api_password: MAIN_API_PASS, method: "getDIDsInfo" });
+    if (result.status === "success" && Array.isArray(result.dids)) {
+      const myDids = (Array.isArray(emp.did) ? emp.did : [emp.did]).map(normDID);
+      result.dids = result.dids.filter(d => myDids.includes(normDID(d.did)));
+    }
     sendJSON(res, 200, result);
   } catch (e) { sendJSON(res, 500, { error: e.message }); }
 }
@@ -338,6 +446,31 @@ const server = http.createServer(async (req, res) => {
   }
   serveStatic(req, res);
 });
+
+// ===== SIP WebSocket 代理 =====
+// 浏览器(中国) → wss://your-render-app/sip-proxy → Render(美国) → wss://sanjose2.voip.ms
+// 解决中国大陆无法直连VoIP.ms WSS的问题
+try {
+  const WebSocket = require("ws");
+  const SIP_TARGET = "wss://sanjose2.voip.ms";
+  const wss = new WebSocket.Server({ server, path: "/sip-proxy" });
+  wss.on("connection", (clientWs, req) => {
+    console.log("SIP代理: 新连接来自", req.socket.remoteAddress);
+    const upstream = new WebSocket(SIP_TARGET, ["sip"], {
+      headers: { "User-Agent": "VoIP-Proxy/1.0" }
+    });
+    upstream.on("open", () => { console.log("SIP代理: 已连接到VoIP.ms"); });
+    upstream.on("message", (data) => { if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data); });
+    upstream.on("close", (code, reason) => { console.log("SIP代理: 上游关闭", code); if (clientWs.readyState === WebSocket.OPEN) clientWs.close(code, reason); });
+    upstream.on("error", (err) => { console.log("SIP代理: 上游错误", err.message); if (clientWs.readyState === WebSocket.OPEN) clientWs.close(1011, err.message); });
+    clientWs.on("message", (data) => { if (upstream.readyState === WebSocket.OPEN) upstream.send(data); });
+    clientWs.on("close", (code, reason) => { if (upstream.readyState === WebSocket.OPEN) upstream.close(code, reason); });
+    clientWs.on("error", (err) => { console.log("SIP代理: 客户端错误", err.message); });
+  });
+  console.log("SIP WebSocket代理已启动: /sip-proxy → " + SIP_TARGET);
+} catch(e) {
+  console.log("SIP代理未启动(ws模块未安装):", e.message);
+}
 
 server.listen(PORT, () => {
   console.log("");
