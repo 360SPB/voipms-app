@@ -447,89 +447,78 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res);
 });
 
-// ===== SIP WebSocket 代理 (TLS隧道模式) =====
-// 浏览器 → wss://render/sip-proxy → Render服务器 → TLS直连 sanjose2.voip.ms:443
-// 使用tls模块建立真实TLS连接，完整透传WebSocket帧，解决国内无法直连问题
+// ===== SIP WebSocket 代理 =====
+// 浏览器(中国) → wss://render/sip-proxy → Render(美国) → wss://sanjose2.voip.ms
 (function() {
-  const tls = require("tls");
   const WebSocket = require("ws");
+  const SIP_TARGET = "wss://sanjose2.voip.ms";
   const wss = new WebSocket.Server({ server, path: "/sip-proxy" });
 
   wss.on("connection", (clientWs, req) => {
-    console.log("SIP代理: 新连接 from", req.socket.remoteAddress);
+    console.log("SIP代理: 新客户端连接");
+    let upstreamReady = false;
+    const pendingMessages = [];
 
-    // 建立到 VoIP.ms 的真实 TLS 连接
-    const tlsSocket = tls.connect({ host: "sanjose2.voip.ms", port: 443, servername: "sanjose2.voip.ms" }, () => {
-      console.log("SIP代理: TLS已连接到 sanjose2.voip.ms:443");
-      // 发送 WebSocket 握手升级请求
-      const key = Buffer.from(Math.random().toString(36)).toString("base64");
-      const handshake = [
-        "GET / HTTP/1.1",
-        "Host: sanjose2.voip.ms",
-        "Upgrade: websocket",
-        "Connection: Upgrade",
-        "Sec-WebSocket-Key: " + key,
-        "Sec-WebSocket-Version: 13",
-        "Sec-WebSocket-Protocol: sip",
-        "User-Agent: JsSIP/3.13.8",
-        "", ""
-      ].join("\r\n");
-      tlsSocket.write(handshake);
+    const upstream = new WebSocket(SIP_TARGET, ["sip"], {
+      headers: { "User-Agent": "JsSIP/3.13.8" },
+      handshakeTimeout: 10000
     });
 
-    let handshakeDone = false;
-    let buffer = Buffer.alloc(0);
-
-    tlsSocket.on("data", (chunk) => {
-      if (!handshakeDone) {
-        buffer = Buffer.concat([buffer, chunk]);
-        const headerEnd = buffer.indexOf("\r\n\r\n");
-        if (headerEnd !== -1) {
-          handshakeDone = true;
-          const headers = buffer.slice(0, headerEnd).toString();
-          console.log("SIP代理: 握手响应:", headers.split("\r\n")[0]);
-          // 握手后剩余数据直接转发给客户端
-          const rest = buffer.slice(headerEnd + 4);
-          if (rest.length > 0 && clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(rest);
-          }
-          buffer = Buffer.alloc(0);
-        }
-      } else {
-        // 握手完成后直接透传原始WebSocket帧
-        if (clientWs.readyState === WebSocket.OPEN) {
-          clientWs.send(chunk);
-        }
+    upstream.on("open", () => {
+      console.log("SIP代理: ✅ 已连接到VoIP.ms, protocol:", upstream.protocol);
+      upstreamReady = true;
+      // 发送积压消息
+      while (pendingMessages.length > 0) {
+        const msg = pendingMessages.shift();
+        upstream.send(msg);
       }
     });
 
-    tlsSocket.on("error", (err) => {
-      console.log("SIP代理: TLS错误", err.message);
+    upstream.on("message", (data) => {
+      const preview = typeof data === "string" ? data.slice(0, 80) : "[binary " + data.length + "b]";
+      console.log("SIP代理: VoIP.ms→客户端:", preview);
+      if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
+    });
+
+    upstream.on("close", (code, reason) => {
+      console.log("SIP代理: VoIP.ms断开 code:", code, "reason:", String(reason));
+      if (clientWs.readyState === WebSocket.OPEN) clientWs.close(code, reason);
+    });
+
+    upstream.on("error", (err) => {
+      console.log("SIP代理: ❌ VoIP.ms连接错误:", err.message);
       if (clientWs.readyState === WebSocket.OPEN) clientWs.close(1011, err.message);
     });
 
-    tlsSocket.on("close", () => {
-      console.log("SIP代理: TLS连接关闭");
-      if (clientWs.readyState === WebSocket.OPEN) clientWs.close(1000);
+    upstream.on("unexpected-response", (req, res) => {
+      console.log("SIP代理: ❌ VoIP.ms意外响应 status:", res.statusCode);
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => console.log("SIP代理: 响应body:", body.slice(0, 200)));
+      if (clientWs.readyState === WebSocket.OPEN) clientWs.close(1011, "upstream " + res.statusCode);
     });
 
-    // 客户端发来的WebSocket帧直接透传给VoIP.ms
-    clientWs.on("message", (data, isBinary) => {
-      if (tlsSocket.writable) tlsSocket.write(data);
+    clientWs.on("message", (data) => {
+      const preview = typeof data === "string" ? data.slice(0, 80) : "[binary " + data.length + "b]";
+      console.log("SIP代理: 客户端→VoIP.ms:", preview);
+      if (upstreamReady && upstream.readyState === WebSocket.OPEN) {
+        upstream.send(data);
+      } else {
+        pendingMessages.push(data);
+      }
     });
 
     clientWs.on("close", (code, reason) => {
-      console.log("SIP代理: 客户端断开", code);
-      tlsSocket.destroy();
+      console.log("SIP代理: 客户端断开 code:", code);
+      if (upstream.readyState === WebSocket.OPEN) upstream.close(code, reason);
     });
 
     clientWs.on("error", (err) => {
-      console.log("SIP代理: 客户端错误", err.message);
-      tlsSocket.destroy();
+      console.log("SIP代理: 客户端错误:", err.message);
     });
   });
 
-  console.log("SIP WebSocket代理已启动(TLS隧道模式): /sip-proxy → sanjose2.voip.ms:443");
+  console.log("SIP WebSocket代理已启动: /sip-proxy → " + SIP_TARGET);
 })();
 
 server.listen(PORT, () => {
